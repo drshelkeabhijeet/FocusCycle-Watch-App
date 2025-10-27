@@ -33,8 +33,6 @@ struct YogaTimerView: View {
     // Multiple interval sequencing (0 = Asana Hold, 1 = Rest)
     @State private var multiPhaseIndex: Int = 0
     @State private var multiPhaseStartElapsed: Int = 0
-    @State private var showingAlertSettings = false
-    @StateObject private var alertManager = AlertManager.shared
     
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     private let asanaCycleIntervalSeconds: Int = 8
@@ -285,31 +283,6 @@ struct YogaTimerView: View {
                             .frame(maxWidth: .infinity)
                         }
                         
-                        // Alert Settings Button
-                        Button(action: {
-                            showingAlertSettings = true
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "bell.fill")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(.white)
-                                
-                                Text("Alerts")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(.white)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(DesignSystem.Colors.focusBlue)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                    )
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, M.hPad)
@@ -332,9 +305,6 @@ struct YogaTimerView: View {
                 multipleIntervalsSequenceDurationMinutes: $multipleIntervalsSequenceDurationMinutes
             )
             .environmentObject(heart)
-        }
-        .sheet(isPresented: $showingAlertSettings) {
-            AlertSettingsView()
         }
         .onReceive(timer) { _ in
             guard isTimerRunning else { return }
