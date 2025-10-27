@@ -1,0 +1,764 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		F6262C002E5D805A00004175 /* FocusCycle Watch App.app in CopyFiles */ = {isa = PBXBuildFile; fileRef = F64707432E04EF2600820F1F /* FocusCycle Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		F6262BFD2E5D7F9900004175 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F64707372E04EF2600820F1F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F64707422E04EF2600820F1F;
+			remoteInfo = "FocusCycle Watch App";
+		};
+		F64707532E04EF2800820F1F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F64707372E04EF2600820F1F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F64707422E04EF2600820F1F;
+			remoteInfo = "FocusCycle Watch App";
+		};
+		F647075D2E04EF2800820F1F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F64707372E04EF2600820F1F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F64707422E04EF2600820F1F;
+			remoteInfo = "FocusCycle Watch App";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		F6262BFF2E5D7FB300004175 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Watch;
+			dstSubfolderSpec = 1;
+			files = (
+				F6262C002E5D805A00004175 /* FocusCycle Watch App.app in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		F6262BF22E5D7F2D00004175 /* YogaContainer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = YogaContainer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F64707432E04EF2600820F1F /* FocusCycle Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "FocusCycle Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F64707522E04EF2800820F1F /* FocusCycle Watch AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "FocusCycle Watch AppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F647075C2E04EF2800820F1F /* FocusCycle Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "FocusCycle Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		F6262C022E5D98CA00004175 /* Exceptions for "YogaContainer" folder in "YogaContainer" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = F6262BF12E5D7F2D00004175 /* YogaContainer */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		F6262BF32E5D7F2D00004175 /* YogaContainer */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F6262C022E5D98CA00004175 /* Exceptions for "YogaContainer" folder in "YogaContainer" target */,
+			);
+			path = YogaContainer;
+			sourceTree = "<group>";
+		};
+		F64707472E04EF2600820F1F /* FocusCycle Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "FocusCycle Watch App";
+			sourceTree = "<group>";
+		};
+		F64707552E04EF2800820F1F /* FocusCycle Watch AppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "FocusCycle Watch AppTests";
+			sourceTree = "<group>";
+		};
+		F647075F2E04EF2800820F1F /* FocusCycle Watch AppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "FocusCycle Watch AppUITests";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F6262BEF2E5D7F2D00004175 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F64707402E04EF2600820F1F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F647074F2E04EF2800820F1F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F64707592E04EF2800820F1F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F64707362E04EF2600820F1F = {
+			isa = PBXGroup;
+			children = (
+				F6D582202E2CA9630090A9F9 /* New Group */,
+				F64707472E04EF2600820F1F /* FocusCycle Watch App */,
+				F64707552E04EF2800820F1F /* FocusCycle Watch AppTests */,
+				F647075F2E04EF2800820F1F /* FocusCycle Watch AppUITests */,
+				F6262BF32E5D7F2D00004175 /* YogaContainer */,
+				F647073E2E04EF2600820F1F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F647073E2E04EF2600820F1F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F64707432E04EF2600820F1F /* FocusCycle Watch App.app */,
+				F64707522E04EF2800820F1F /* FocusCycle Watch AppTests.xctest */,
+				F647075C2E04EF2800820F1F /* FocusCycle Watch AppUITests.xctest */,
+				F6262BF22E5D7F2D00004175 /* YogaContainer.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F6D582202E2CA9630090A9F9 /* New Group */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = "New Group";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F6262BF12E5D7F2D00004175 /* YogaContainer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F6262BFA2E5D7F2E00004175 /* Build configuration list for PBXNativeTarget "YogaContainer" */;
+			buildPhases = (
+				F6262BEE2E5D7F2D00004175 /* Sources */,
+				F6262BEF2E5D7F2D00004175 /* Frameworks */,
+				F6262BF02E5D7F2D00004175 /* Resources */,
+				F6262BFF2E5D7FB300004175 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F6262BFE2E5D7F9900004175 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				F6262BF32E5D7F2D00004175 /* YogaContainer */,
+			);
+			name = YogaContainer;
+			packageProductDependencies = (
+			);
+			productName = YogaContainer;
+			productReference = F6262BF22E5D7F2D00004175 /* YogaContainer.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F64707422E04EF2600820F1F /* FocusCycle Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F64707662E04EF2800820F1F /* Build configuration list for PBXNativeTarget "FocusCycle Watch App" */;
+			buildPhases = (
+				F647073F2E04EF2600820F1F /* Sources */,
+				F64707402E04EF2600820F1F /* Frameworks */,
+				F64707412E04EF2600820F1F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				F64707472E04EF2600820F1F /* FocusCycle Watch App */,
+			);
+			name = "FocusCycle Watch App";
+			packageProductDependencies = (
+			);
+			productName = "FocusCycle Watch App";
+			productReference = F64707432E04EF2600820F1F /* FocusCycle Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F64707512E04EF2800820F1F /* FocusCycle Watch AppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F647076D2E04EF2800820F1F /* Build configuration list for PBXNativeTarget "FocusCycle Watch AppTests" */;
+			buildPhases = (
+				F647074E2E04EF2800820F1F /* Sources */,
+				F647074F2E04EF2800820F1F /* Frameworks */,
+				F64707502E04EF2800820F1F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F64707542E04EF2800820F1F /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				F64707552E04EF2800820F1F /* FocusCycle Watch AppTests */,
+			);
+			name = "FocusCycle Watch AppTests";
+			packageProductDependencies = (
+			);
+			productName = "FocusCycle Watch AppTests";
+			productReference = F64707522E04EF2800820F1F /* FocusCycle Watch AppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		F647075B2E04EF2800820F1F /* FocusCycle Watch AppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F64707702E04EF2800820F1F /* Build configuration list for PBXNativeTarget "FocusCycle Watch AppUITests" */;
+			buildPhases = (
+				F64707582E04EF2800820F1F /* Sources */,
+				F64707592E04EF2800820F1F /* Frameworks */,
+				F647075A2E04EF2800820F1F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F647075E2E04EF2800820F1F /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				F647075F2E04EF2800820F1F /* FocusCycle Watch AppUITests */,
+			);
+			name = "FocusCycle Watch AppUITests";
+			packageProductDependencies = (
+			);
+			productName = "FocusCycle Watch AppUITests";
+			productReference = F647075C2E04EF2800820F1F /* FocusCycle Watch AppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F64707372E04EF2600820F1F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1640;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					F6262BF12E5D7F2D00004175 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+					F64707422E04EF2600820F1F = {
+						CreatedOnToolsVersion = 16.4;
+					};
+					F64707512E04EF2800820F1F = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = F64707422E04EF2600820F1F;
+					};
+					F647075B2E04EF2800820F1F = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = F64707422E04EF2600820F1F;
+					};
+				};
+			};
+			buildConfigurationList = F647073A2E04EF2600820F1F /* Build configuration list for PBXProject "FocusCycle" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = F64707362E04EF2600820F1F;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = F647073E2E04EF2600820F1F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F64707422E04EF2600820F1F /* FocusCycle Watch App */,
+				F64707512E04EF2800820F1F /* FocusCycle Watch AppTests */,
+				F647075B2E04EF2800820F1F /* FocusCycle Watch AppUITests */,
+				F6262BF12E5D7F2D00004175 /* YogaContainer */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F6262BF02E5D7F2D00004175 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F64707412E04EF2600820F1F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F64707502E04EF2800820F1F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F647075A2E04EF2800820F1F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F6262BEE2E5D7F2D00004175 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F647073F2E04EF2600820F1F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F647074E2E04EF2800820F1F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F64707582E04EF2800820F1F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F6262BFE2E5D7F9900004175 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F64707422E04EF2600820F1F /* FocusCycle Watch App */;
+			targetProxy = F6262BFD2E5D7F9900004175 /* PBXContainerItemProxy */;
+		};
+		F64707542E04EF2800820F1F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F64707422E04EF2600820F1F /* FocusCycle Watch App */;
+			targetProxy = F64707532E04EF2800820F1F /* PBXContainerItemProxy */;
+		};
+		F647075E2E04EF2800820F1F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F64707422E04EF2600820F1F /* FocusCycle Watch App */;
+			targetProxy = F647075D2E04EF2800820F1F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		F6262BFB2E5D7F2E00004175 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QL4VY8GAJ8;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = YogaContainer/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.abhijeetshelke.Yoga-Timer";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F6262BFC2E5D7F2E00004175 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QL4VY8GAJ8;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = YogaContainer/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.abhijeetshelke.Yoga-Timer";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		F64707642E04EF2800820F1F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = QL4VY8GAJ8;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F64707652E04EF2800820F1F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = QL4VY8GAJ8;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		F64707672E04EF2800820F1F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "FocusCycle Watch App/FocusCycle Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QL4VY8GAJ8;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "FocusCycle-Watch-App-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Yoga Asana Timer";
+				INFOPLIST_KEY_CLKComplicationPrincipalClass = "$(PRODUCT_MODULE_NAME).ComplicationController";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Yoga Timer reads heart rate to show your practice intensity.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Yoga Timer saves mindful minutes when you complete a session.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKWatchOnly = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.abhijeetshelke.Yoga-Timer.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Debug;
+		};
+		F64707682E04EF2800820F1F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "FocusCycle Watch App/FocusCycle Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QL4VY8GAJ8;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "FocusCycle-Watch-App-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Yoga Asana Timer";
+				INFOPLIST_KEY_CLKComplicationPrincipalClass = "$(PRODUCT_MODULE_NAME).ComplicationController";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Yoga Timer reads heart rate to show your practice intensity.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Yoga Timer saves mindful minutes when you complete a session.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKWatchOnly = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.abhijeetshelke.Yoga-Timer.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Release;
+		};
+		F647076E2E04EF2800820F1F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QL4VY8GAJ8;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.abhijeetshelke.FocusCycle.FocusCycle-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FocusCycle Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FocusCycle Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Debug;
+		};
+		F647076F2E04EF2800820F1F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QL4VY8GAJ8;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.abhijeetshelke.FocusCycle.FocusCycle-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FocusCycle Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FocusCycle Watch App";
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Release;
+		};
+		F64707712E04EF2800820F1F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QL4VY8GAJ8;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.abhijeetshelke.FocusCycle.FocusCycle-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "FocusCycle Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Debug;
+		};
+		F64707722E04EF2800820F1F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QL4VY8GAJ8;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.abhijeetshelke.FocusCycle.FocusCycle-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "FocusCycle Watch App";
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F6262BFA2E5D7F2E00004175 /* Build configuration list for PBXNativeTarget "YogaContainer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F6262BFB2E5D7F2E00004175 /* Debug */,
+				F6262BFC2E5D7F2E00004175 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F647073A2E04EF2600820F1F /* Build configuration list for PBXProject "FocusCycle" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F64707642E04EF2800820F1F /* Debug */,
+				F64707652E04EF2800820F1F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F64707662E04EF2800820F1F /* Build configuration list for PBXNativeTarget "FocusCycle Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F64707672E04EF2800820F1F /* Debug */,
+				F64707682E04EF2800820F1F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F647076D2E04EF2800820F1F /* Build configuration list for PBXNativeTarget "FocusCycle Watch AppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F647076E2E04EF2800820F1F /* Debug */,
+				F647076F2E04EF2800820F1F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F64707702E04EF2800820F1F /* Build configuration list for PBXNativeTarget "FocusCycle Watch AppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F64707712E04EF2800820F1F /* Debug */,
+				F64707722E04EF2800820F1F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F64707372E04EF2600820F1F /* Project object */;
+}
