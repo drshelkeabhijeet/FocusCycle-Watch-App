@@ -3,7 +3,10 @@
 <plist version="1.0">
 <dict>
 	<key>UIBackgroundModes</key>
-	<array/>
+	<array>
+		<string>workout-processing</string>
+		<string>background-processing</string>
+	</array>
 	<key>WKBackgroundModes</key>
 	<array>
 		<string>mindfulness</string>

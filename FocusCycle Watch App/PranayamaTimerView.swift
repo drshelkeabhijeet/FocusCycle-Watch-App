@@ -11,6 +11,15 @@ struct PranayamaTimerView: View {
     
     private let timer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
     
+    // MARK: - Extended Runtime Session Management
+    private func startExtendedSession() {
+        RuntimeSessionManager.shared.start()
+    }
+    
+    private func stopExtendedSession() {
+        RuntimeSessionManager.shared.stop()
+    }
+    
     init(pattern: PranayamaPattern) {
         self.pattern = pattern
         self._session = StateObject(wrappedValue: PranayamaSession(pattern: pattern))
@@ -142,8 +151,10 @@ struct PranayamaTimerView: View {
                             print("Start/Pause button pressed")
                             if session.isActive {
                                 session.pause()
+                                stopExtendedSession()
                             } else {
                                 session.start()
+                                startExtendedSession()
                             }
                         }) {
                             VStack(spacing: 3) {
@@ -170,14 +181,17 @@ struct PranayamaTimerView: View {
                             print("Tap gesture triggered")
                             if session.isActive {
                                 session.pause()
+                                stopExtendedSession()
                             } else {
                                 session.start()
+                                startExtendedSession()
                             }
                         }
                         
                         Button(action: {
                             print("Stop button pressed")
                             session.reset()
+                            stopExtendedSession()
                         }) {
                             VStack(spacing: 3) {
                                 Image(systemName: "stop.fill")
@@ -233,7 +247,23 @@ struct PranayamaTimerView: View {
                 StreakManager.shared.recordSession(.pranayama, duration: totalDuration, pattern: pattern.type.rawValue)
                 
                 session.reset()
+                stopExtendedSession()
                 presentationMode.wrappedValue.dismiss()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .appDidEnterBackground)) { _ in
+            // Ensure extended runtime is active when going to background
+            if session.isActive {
+                startExtendedSession()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .extendedRuntimeSessionDidInvalidateAppNotification)) { _ in
+            // Handle extended runtime session invalidation
+            if session.isActive {
+                // Try to restart the session
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    startExtendedSession()
+                }
             }
         }
     }

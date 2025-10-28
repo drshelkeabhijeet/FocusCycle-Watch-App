@@ -9,9 +9,36 @@ import SwiftUI
 
 @main
 struct FocusCycle_Watch_AppApp: App {
+    @Environment(\.scenePhase) private var scenePhase
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onChange(of: scenePhase) { _, phase in
+                    handleScenePhaseChange(phase)
+                }
         }
     }
+    
+    private func handleScenePhaseChange(_ phase: ScenePhase) {
+        switch phase {
+        case .background:
+            // App is going to background - ensure extended runtime is active if timer is running
+            NotificationCenter.default.post(name: .appDidEnterBackground, object: nil)
+        case .active:
+            // App is becoming active - resume normal operation
+            NotificationCenter.default.post(name: .appDidBecomeActive, object: nil)
+        case .inactive:
+            // App is becoming inactive - prepare for background
+            NotificationCenter.default.post(name: .appWillResignActive, object: nil)
+        @unknown default:
+            break
+        }
+    }
+}
+
+extension Notification.Name {
+    static let appDidEnterBackground = Notification.Name("appDidEnterBackground")
+    static let appDidBecomeActive = Notification.Name("appDidBecomeActive")
+    static let appWillResignActive = Notification.Name("appWillResignActive")
 }

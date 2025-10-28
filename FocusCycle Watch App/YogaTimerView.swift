@@ -385,6 +385,21 @@ struct YogaTimerView: View {
             }
             
         }
+        .onReceive(NotificationCenter.default.publisher(for: .appDidEnterBackground)) { _ in
+            // Ensure extended runtime is active when going to background
+            if isTimerRunning {
+                startExtendedSession()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .extendedRuntimeSessionDidInvalidateAppNotification)) { _ in
+            // Handle extended runtime session invalidation
+            if isTimerRunning {
+                // Try to restart the session
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    startExtendedSession()
+                }
+            }
+        }
     }
 }
 
