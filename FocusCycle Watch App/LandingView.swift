@@ -1,117 +1,219 @@
 import SwiftUI
 
-struct LandingView: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @StateObject private var streakManager = StreakManager.shared
-    
-    var body: some View {
-        NavigationView {
-            ZStack {
-                DesignSystem.Colors.backgroundGradient
-                    .ignoresSafeArea()
-                
-                let M = WatchMetrics.current(dynamicType: dynamicTypeSize)
-                
-                VStack(spacing: 16) {
-                    Spacer()
-                    
-                    // App Title
-                    Text("FocusCycle")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                        .padding(.bottom, 8)
-                    
-                    // Main Menu Buttons
-                    VStack(spacing: 8) {
-                        NavigationLink(destination: YogaTimerView()) {
-                            MenuButtonWithStreak(
-                                title: "Yoga",
-                                icon: "figure.yoga",
-                                color: DesignSystem.Colors.focusBlue,
-                                streak: streakManager.getCurrentStreak(for: .yoga)
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        NavigationLink(destination: PranayamaView()) {
-                            MenuButtonWithStreak(
-                                title: "Pranayama",
-                                icon: "wind",
-                                color: DesignSystem.Colors.playGreen,
-                                streak: streakManager.getCurrentStreak(for: .pranayama)
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        NavigationLink(destination: MeditationView()) {
-                            MenuButtonWithStreak(
-                                title: "Meditation",
-                                icon: "brain.head.profile",
-                                color: DesignSystem.Colors.focusPurple,
-                                streak: streakManager.getCurrentStreak(for: .meditation)
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, M.hPad)
-                    
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .navigationBarHidden(true)
+/// Identifies what we want to present as a full-screen sheet from the landing pager.
+/// Using `.sheet(item:)` (driven by State) instead of `NavigationLink` is required
+/// because `NavigationLink` inside a `TabView(.page)` is dismissed on watchOS as
+/// soon as the parent re-renders.
+private enum LandingPresentation: Hashable, Identifiable {
+    case startYoga
+    case startPranayama(PranayamaType)
+    case startMeditation(Int) // minutes
+    case customizeYoga
+    case customizePranayama
+    case customizeMeditation
+
+    var id: String {
+        switch self {
+        case .startYoga: return "startYoga"
+        case .startPranayama(let t): return "startPranayama-\(t.rawValue)"
+        case .startMeditation(let m): return "startMeditation-\(m)"
+        case .customizeYoga: return "customizeYoga"
+        case .customizePranayama: return "customizePranayama"
+        case .customizeMeditation: return "customizeMeditation"
         }
     }
 }
 
-struct MenuButtonWithStreak: View {
+struct LandingView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @StateObject private var streakManager = StreakManager.shared
+    @StateObject private var pranayamaSettings = PranayamaSettingsManager.shared
+    @StateObject private var quickStart = QuickStartCoordinator.shared
+    @State private var selectedPage: LaunchPractice = .yoga
+    @State private var presentation: LandingPresentation?
+
+    private var meditationDurationMinutes: Int {
+        let stored = UserDefaults.standard.integer(forKey: "meditationCustomDurationMinutes")
+        return stored > 0 ? stored : 12
+    }
+
+    private var lastPranayamaType: PranayamaType {
+        if let raw = LaunchStateStore.lastPranayamaTypeRawValue(),
+           let type = PranayamaType(rawValue: raw) {
+            return type
+        }
+        return .anulom
+    }
+
+    var body: some View {
+        ZStack {
+            DesignSystem.Colors.backgroundGradient
+                .ignoresSafeArea()
+
+            TabView(selection: $selectedPage) {
+                PracticePage(
+                    title: "Yoga",
+                    icon: "figure.yoga",
+                    accentColor: DesignSystem.Colors.focusBlue,
+                    streak: streakManager.getCurrentStreak(for: .yoga),
+                    onStart: { presentation = .startYoga },
+                    onCustomize: { presentation = .customizeYoga }
+                )
+                .tag(LaunchPractice.yoga)
+
+                PracticePage(
+                    title: "Pranayama",
+                    icon: "wind",
+                    accentColor: DesignSystem.Colors.playGreen,
+                    streak: streakManager.getCurrentStreak(for: .pranayama),
+                    onStart: { presentation = .startPranayama(lastPranayamaType) },
+                    onCustomize: { presentation = .customizePranayama }
+                )
+                .tag(LaunchPractice.pranayama)
+
+                PracticePage(
+                    title: "Meditation",
+                    icon: "brain.head.profile",
+                    accentColor: DesignSystem.Colors.focusPurple,
+                    streak: streakManager.getCurrentStreak(for: .meditation),
+                    onStart: { presentation = .startMeditation(meditationDurationMinutes) },
+                    onCustomize: { presentation = .customizeMeditation }
+                )
+                .tag(LaunchPractice.meditation)
+            }
+            .tabViewStyle(.page)
+        }
+        .sheet(item: $presentation) { item in
+            destinationView(for: item)
+        }
+        .onAppear {
+            if let last = LaunchStateStore.lastPractice() {
+                selectedPage = last
+            }
+            handlePendingQuickStart()
+        }
+        .onChange(of: quickStart.pendingPractice) { _, _ in
+            handlePendingQuickStart()
+        }
+    }
+
+    private func handlePendingQuickStart() {
+        guard let practice = quickStart.pendingPractice else { return }
+        quickStart.pendingPractice = nil
+        selectedPage = practice
+        switch practice {
+        case .yoga:
+            presentation = .startYoga
+        case .pranayama:
+            presentation = .startPranayama(lastPranayamaType)
+        case .meditation:
+            presentation = .startMeditation(meditationDurationMinutes)
+        }
+    }
+
+    @ViewBuilder
+    private func destinationView(for item: LandingPresentation) -> some View {
+        switch item {
+        case .startYoga:
+            YogaTimerView()
+        case .startPranayama(let type):
+            PranayamaTimerView(pattern: pranayamaSettings.getPattern(for: type))
+        case .startMeditation(let minutes):
+            MeditationTimerView(duration: minutes)
+        case .customizeYoga:
+            YogaCustomizeView()
+        case .customizePranayama:
+            PranayamaView()
+        case .customizeMeditation:
+            MeditationView()
+        }
+    }
+}
+
+/// One full-screen practice page. Big icon, name, streak, and a single primary Start button.
+/// Both Start and Customize use closures (not NavigationLink) because NavigationLink
+/// inside a page-style TabView is unstable on watchOS.
+struct PracticePage: View {
     let title: String
     let icon: String
-    let color: Color
+    let accentColor: Color
     let streak: Int
-    
+    let onStart: () -> Void
+    let onCustomize: () -> Void
+
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.white)
-                .frame(width: 20, height: 20)
-            
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
+        VStack(spacing: 12) {
+            Spacer(minLength: 0)
+
+            ZStack {
+                Circle()
+                    .fill(accentColor.opacity(0.18))
+                    .frame(width: 88, height: 88)
+                Image(systemName: icon)
+                    .font(.system(size: 38, weight: .medium))
                     .foregroundColor(.white)
-                
+            }
+
+            VStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+
                 if streak > 0 {
-                    Text("\(streak) day streak")
-                        .font(.system(size: 8, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(DesignSystem.Colors.pauseOrange)
+                        Text("\(streak) day\(streak == 1 ? "" : "s")")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.75))
+                    }
+                } else {
+                    Text("Tap start when ready")
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundColor(.white.opacity(0.55))
                 }
             }
-            
-            Spacer()
-            
-            if streak > 0 {
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(DesignSystem.Colors.pauseOrange)
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 8) {
+                Button(action: onStart) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "play.fill")
+                        Text("Start")
+                    }
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(accentColor)
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .accessibilityIdentifier("\(title.lowercased())-quick-start")
+                .accessibilityLabel("Start \(title)")
+
+                Button(action: onCustomize) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.85))
+                        .frame(width: 44, height: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(DesignSystem.Colors.cardBackgroundHighlight)
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .accessibilityIdentifier("\(title.lowercased())-customize")
+                .accessibilityLabel("Customize \(title)")
             }
-            
-            Image(systemName: "chevron.right")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(.white.opacity(0.7))
+            .padding(.bottom, 18)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(color.opacity(0.8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                )
-        )
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

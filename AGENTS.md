@@ -41,3 +41,10 @@
 - Scheme: Share `FocusCycle` scheme; archive the container (not the watch target); upload via Organizer.
 - Store listing: Apple Watch screenshots, Description/Keywords, Support and Privacy Policy URLs.
 - App Privacy: Declare Health data usage (not linked, no tracking) consistent with the app.
+- App Tracking Transparency: not used (no third-party tracking). No `NSUserTrackingUsageDescription` required.
+
+## Open Action Items (carry-overs)
+- **iOS app icon assets**: `YogaContainer/Assets.xcassets/AppIcon.appiconset/Contents.json` declares three universal 1024×1024 slots (Any/Dark/Tinted) but contains **no PNG files**. Export the iOS icon at 1024×1024 (light, dark, tinted variants) and add them to that appiconset before App Store submission, otherwise the icon will render as the generic gray placeholder.
+- **Version parity**: When bumping the marketing version, bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` on **both** the watch and iOS targets together. The iOS app's version is the one shown in App Store Connect; mismatched watch/iOS versions confuse TestFlight pairings.
+- **HealthKit on iOS (out of scope for v1)**: HealthKit reads run on the watch only. If a future release wants the iOS Insights tab to show Mindful Minutes sourced from HealthKit directly (instead of the WCSession snapshot), enable the HealthKit capability on the iOS target, add `NSHealthShareUsageDescription`, and read `HKCategoryTypeIdentifier.mindfulSession` from `HealthKitManager` ported to iOS. Until then, iOS only renders what the watch pushes over `CompanionStateSnapshot`.
+- **Shared sync models**: `CompanionSyncModels.swift` is intentionally duplicated in `YogaContainer/` and `FocusCycle Watch App/` because the project uses `PBXFileSystemSynchronizedRootGroup`. Keep both copies byte-identical; long term, extract to a Swift Package shared by both targets.

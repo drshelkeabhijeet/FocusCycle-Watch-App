@@ -3,10 +3,15 @@ import SwiftUI
 struct PranayamaTimerView: View {
     let pattern: PranayamaPattern
     @StateObject private var session: PranayamaSession
-    @State private var showingSettings = false
     @State private var showingAlertSettings = false
-    @State private var showingPhaseAlertSettings = false
     @StateObject private var alertManager = AlertManager.shared
+    @State private var showingCompletionSummary = false
+    @State private var completionSummary = ""
+    @State private var runtimeStatus = ""
+    @State private var statusMessage: String?
+    @State private var mindfulStartDate: Date?
+    @StateObject private var heart = HeartRateManager()
+    private let healthCoordinator = SessionHealthCoordinator()
     @Environment(\.presentationMode) var presentationMode
     
     private let timer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
@@ -18,6 +23,12 @@ struct PranayamaTimerView: View {
     
     private func stopExtendedSession() {
         RuntimeSessionManager.shared.stop()
+    }
+
+    private func saveMindfulSessionIfNeeded() {
+        guard let start = mindfulStartDate else { return }
+        HealthKitManager.shared.saveMindfulSession(start: start, end: Date())
+        mindfulStartDate = nil
     }
     
     init(pattern: PranayamaPattern) {
@@ -33,72 +44,47 @@ struct PranayamaTimerView: View {
                 
                 let M = WatchMetrics.current(dynamicType: .medium)
                 
-                VStack(spacing: 4) {
+                VStack(spacing: 6) {
                     // Header
-                    HStack {
-                        Button("Close") {
+                    HStack(alignment: .center) {
+                        Button(action: {
+                            session.reset()
+                            saveMindfulSessionIfNeeded()
+                            stopExtendedSession()
+                            heart.stop()
                             presentationMode.wrappedValue.dismiss()
-                        }
-                        .font(.system(size: 8, weight: .medium))
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                        
-                        Spacer()
-                        
-                        Text(pattern.type.displayName)
-                            .font(.system(size: 18, weight: .semibold, design: .rounded))
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                        
-                        Spacer()
-                        
-                        VStack(spacing: 1) {
-                            Text("\(session.currentCycle)/\(pattern.cycles)")
-                                .font(.system(size: 16, weight: .medium))
+                        }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(DesignSystem.Colors.textSecondary)
-                            
-                            HStack(spacing: 8) {
-                                Button(action: {
-                                    showingAlertSettings = true
-                                }) {
-                                    VStack(spacing: 1) {
-                                        Image(systemName: "bell.fill")
-                                            .font(.system(size: 12, weight: .medium))
-                                            .foregroundColor(.white)
-                                        
-                                        Text("Alert")
-                                            .font(.system(size: 6, weight: .medium))
-                                            .foregroundColor(.white)
-                                    }
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 4)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(DesignSystem.Colors.focusBlue)
-                                    )
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                                
-                                Button(action: {
-                                    showingPhaseAlertSettings = true
-                                }) {
-                                    VStack(spacing: 1) {
-                                        Image(systemName: "waveform")
-                                            .font(.system(size: 12, weight: .medium))
-                                            .foregroundColor(.white)
-                                        
-                                        Text("Phase")
-                                            .font(.system(size: 6, weight: .medium))
-                                            .foregroundColor(.white)
-                                    }
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 4)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(DesignSystem.Colors.playGreen)
-                                    )
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                            }
+                                .frame(width: 28, height: 28)
+                                .background(Circle().fill(DesignSystem.Colors.cardBackgroundHighlight))
                         }
+                        .buttonStyle(PlainButtonStyle())
+                        .accessibilityLabel("Close")
+
+                        Spacer()
+
+                        VStack(spacing: 0) {
+                            Text(pattern.type.displayName)
+                                .font(DesignSystem.Typography.heading)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                            Text("\(session.currentCycle)/\(pattern.cycles)")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Button(action: { showingAlertSettings = true }) {
+                            Image(systemName: "bell.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 28, height: 28)
+                                .background(Circle().fill(DesignSystem.Colors.focusBlue))
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .accessibilityLabel("Alerts")
                     }
                     .padding(.horizontal, M.hPad)
                     .padding(.top, 2)
@@ -117,18 +103,21 @@ struct PranayamaTimerView: View {
                                 width: breathingSize * 0.6,
                                 height: breathingSize * 0.6
                             )
-                            .animation(.easeInOut(duration: 0.5), value: breathingSize)
+                            .animation(DesignSystem.Animation.phaseTransition, value: breathingSize)
                         
                         // Phase indicator
                         VStack(spacing: 2) {
                             Text(session.currentPhase.displayName)
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .font(.system(size: 18, weight: .semibold, design: .rounded))
                                 .foregroundColor(.white)
                             
                             Text("\(Int(session.phaseProgress * 100))%")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.white.opacity(0.8))
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Breathing phase")
+                        .accessibilityValue("\(session.currentPhase.displayName), \(Int(session.phaseProgress * 100)) percent")
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, M.hPad)
@@ -136,25 +125,34 @@ struct PranayamaTimerView: View {
                     // Time remaining
                     HStack {
                         Text("Time")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                         Spacer()
                         Text(formatTime(session.remainingTime))
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
                             .foregroundColor(.white)
                     }
                     .padding(.horizontal, M.hPad)
                     
                     // Control buttons
-                    HStack(spacing: 20) {
+                    HStack(spacing: 16) {
                         Button(action: {
-                            print("Start/Pause button pressed")
                             if session.isActive {
                                 session.pause()
                                 stopExtendedSession()
+                                heart.stop()
                             } else {
+                                runtimeStatus = ""
                                 session.start()
+                                if mindfulStartDate == nil { mindfulStartDate = Date() }
                                 startExtendedSession()
+                                HealthKitManager.shared.requestAuthorizationIfNeeded { granted in
+                                    DispatchQueue.main.async {
+                                        statusMessage = granted ? nil : "Health access unavailable"
+                                    }
+                                }
+                                heart.start(activityType: .mindAndBody)
+                                healthCoordinator.captureBaseline()
                             }
                         }) {
                             VStack(spacing: 3) {
@@ -163,7 +161,7 @@ struct PranayamaTimerView: View {
                                     .foregroundColor(.white)
                                 
                                 Text(session.isActive ? "Pause" : "Start")
-                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .font(.system(size: 9, weight: .semibold, design: .rounded))
                                     .foregroundColor(.white)
                             }
                             .frame(width: 60, height: 60)
@@ -174,24 +172,17 @@ struct PranayamaTimerView: View {
                                         Circle()
                                             .stroke(Color.white.opacity(0.3), lineWidth: 2)
                                     )
+                                    .animation(DesignSystem.Animation.phaseTransition, value: session.isActive)
                             )
                         }
                         .buttonStyle(.plain)
-                        .onTapGesture {
-                            print("Tap gesture triggered")
-                            if session.isActive {
-                                session.pause()
-                                stopExtendedSession()
-                            } else {
-                                session.start()
-                                startExtendedSession()
-                            }
-                        }
+                        .accessibilityIdentifier("pranayama-start-pause")
                         
                         Button(action: {
-                            print("Stop button pressed")
                             session.reset()
+                            saveMindfulSessionIfNeeded()
                             stopExtendedSession()
+                            heart.stop()
                         }) {
                             VStack(spacing: 3) {
                                 Image(systemName: "stop.fill")
@@ -199,7 +190,7 @@ struct PranayamaTimerView: View {
                                     .foregroundColor(.white)
                                 
                                 Text("Stop")
-                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .font(.system(size: 9, weight: .semibold, design: .rounded))
                                     .foregroundColor(.white)
                             }
                             .frame(width: 60, height: 60)
@@ -213,13 +204,20 @@ struct PranayamaTimerView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .onTapGesture {
-                            print("Stop tap gesture triggered")
-                            session.reset()
-                        }
+                        .accessibilityIdentifier("pranayama-stop")
                     }
                     .padding(.horizontal, M.hPad)
                     .padding(.bottom, 4)
+
+                    if let effectiveStatus = statusMessage ?? (runtimeStatus.isEmpty ? nil : runtimeStatus) {
+                        Text(effectiveStatus)
+                            .font(DesignSystem.Typography.micro)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                            .opacity(0.85)
+                            .padding(.horizontal, M.hPad)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
                     
                     Spacer()
                 }
@@ -227,43 +225,56 @@ struct PranayamaTimerView: View {
             }
             .navigationBarHidden(true)
         }
-        .sheet(isPresented: $showingSettings) {
-            PranayamaSettingsView()
-        }
         .sheet(isPresented: $showingAlertSettings) {
             AlertSettingsView()
-        }
-        .sheet(isPresented: $showingPhaseAlertSettings) {
-            PhaseAlertSettingsView()
         }
         .onReceive(timer) { _ in
             guard session.isActive else { return }
             session.updateProgress()
-            
-            // Auto-dismiss when session completes
+
             if session.remainingTime <= 0 {
-                // Record session for streak tracking
                 let totalDuration = pattern.totalDuration
-                StreakManager.shared.recordSession(.pranayama, duration: totalDuration, pattern: pattern.type.rawValue)
-                
+                let patternRaw = pattern.type.rawValue
                 session.reset()
+                saveMindfulSessionIfNeeded()
                 stopExtendedSession()
-                presentationMode.wrappedValue.dismiss()
+                heart.stop { aggregate in
+                    healthCoordinator.finalize(aggregate: aggregate) { metrics in
+                        StreakManager.shared.recordSession(.pranayama, duration: totalDuration, pattern: patternRaw, metrics: metrics)
+                    }
+                }
+                completionSummary = "\(pattern.type.displayName) finished"
+                showingCompletionSummary = true
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .appDidEnterBackground)) { _ in
-            // Ensure extended runtime is active when going to background
             if session.isActive {
                 startExtendedSession()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .extendedRuntimeSessionDidInvalidateAppNotification)) { _ in
-            // Handle extended runtime session invalidation
             if session.isActive {
-                // Try to restart the session
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    startExtendedSession()
-                }
+                session.pause()
+                saveMindfulSessionIfNeeded()
+                heart.stop()
+                runtimeStatus = "Session paused by system"
+            }
+        }
+        .onAppear {
+            LaunchStateStore.remember(.pranayama)
+            LaunchStateStore.rememberPranayamaType(pattern.type.rawValue)
+        }
+        .alert("Session Complete", isPresented: $showingCompletionSummary) {
+            Button("Done", role: .cancel) { }
+        } message: {
+            Text(completionSummary)
+        }
+        .animation(DesignSystem.Animation.sheetTransition, value: showingCompletionSummary)
+        .onDisappear {
+            if !session.isActive {
+                saveMindfulSessionIfNeeded()
+                stopExtendedSession()
+                heart.stop()
             }
         }
     }

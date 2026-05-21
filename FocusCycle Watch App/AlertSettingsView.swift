@@ -2,203 +2,197 @@ import SwiftUI
 
 struct AlertSettingsView: View {
     @StateObject private var alertManager = AlertManager.shared
-    @Environment(\.presentationMode) var presentationMode
-    
+    @Environment(\.dismiss) var dismiss
+
+    /// When true, show per-phase pranayama controls below the general settings.
+    var includesPhaseAlerts: Bool = true
+
+    private var soundEnabled: Bool { AlertManager.hasBundledSoundAssets }
+
+    private var visibleAlertTypes: [AlertType] {
+        soundEnabled ? AlertType.allCases : AlertType.allCases.filter { $0 != .sound && $0 != .both }
+    }
+
     var body: some View {
         NavigationView {
-            ZStack {
-                DesignSystem.Colors.backgroundGradient
-                    .ignoresSafeArea()
-                
-                let M = WatchMetrics.current(dynamicType: .medium)
-                
-                ScrollView {
-                    VStack(spacing: 6) {
-                    // Header
-                    HStack {
-                        Button("Done") {
-                            presentationMode.wrappedValue.dismiss()
+            List {
+                Section("Type") {
+                    Picker("Alert Type", selection: Binding(
+                        get: { alertManager.settings.alertType },
+                        set: { alertManager.updateAlertType($0) }
+                    )) {
+                        ForEach(visibleAlertTypes, id: \.self) { type in
+                            Label(type.displayName, systemImage: type.icon).tag(type)
                         }
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                        
-                        Spacer()
-                        
-                        Text("Alert Settings")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                        
-                        Spacer()
-                        
-                        Button("Test") {
-                            print("Testing alert...")
-                            alertManager.testAlert()
-                        }
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(DesignSystem.Colors.focusBlue)
                     }
-                    .padding(.horizontal, M.hPad)
-                    .padding(.top, 2)
-                    
-                    // Alert Type Selection
-                    VStack(spacing: 3) {
-                        Text("Alert Type")
-                            .font(.system(size: 7, weight: .medium))
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                        
-                        HStack(spacing: 4) {
-                            ForEach(AlertType.allCases, id: \.self) { type in
-                                Button(action: {
-                                    alertManager.updateAlertType(type)
-                                }) {
-                                    VStack(spacing: 2) {
-                                        Image(systemName: type.icon)
-                                            .font(.system(size: 8, weight: .medium))
-                                            .foregroundColor(alertManager.settings.alertType == type ? .white : DesignSystem.Colors.textSecondary)
-                                        
-                                        Text(type.displayName)
-                                            .font(.system(size: 6, weight: .medium))
-                                            .foregroundColor(alertManager.settings.alertType == type ? .white : DesignSystem.Colors.textSecondary)
-                                    }
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 3)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .fill(alertManager.settings.alertType == type ? DesignSystem.Colors.focusBlue : Color.clear)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 4)
-                                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                            )
-                                    )
-                                }
-                                .buttonStyle(PlainButtonStyle())
+                    .pickerStyle(.navigationLink)
+                }
+
+                if alertManager.settings.alertType == .haptic || alertManager.settings.alertType == .both {
+                    Section("Haptic") {
+                        NavigationLink {
+                            HapticPickerScreen()
+                        } label: {
+                            HStack {
+                                Text("Style")
+                                Spacer()
+                                Text(alertManager.settings.hapticType.displayName)
+                                    .foregroundColor(.secondary)
                             }
                         }
                     }
-                    .padding(.horizontal, M.hPad)
-                    
-                    // Haptic Settings (if haptic is enabled)
-                    if alertManager.settings.alertType == .haptic || alertManager.settings.alertType == .both {
-                        VStack(spacing: 4) {
-                            Text("Haptic Type")
-                                .font(.system(size: 8, weight: .medium))
-                                .foregroundColor(DesignSystem.Colors.textSecondary)
-                            
-                            ForEach(HapticType.allCases, id: \.self) { type in
-                                Button(action: {
-                                    alertManager.updateHapticType(type)
-                                }) {
-                                    HStack(spacing: 6) {
-                                        Text(type.displayName)
-                                            .font(.system(size: 8, weight: .medium))
-                                            .foregroundColor(alertManager.settings.hapticType == type ? .white : DesignSystem.Colors.textSecondary)
-                                        
-                                        Spacer()
-                                        
-                                        if alertManager.settings.hapticType == type {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 8, weight: .bold))
-                                                .foregroundColor(.white)
-                                        }
-                                    }
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .fill(alertManager.settings.hapticType == type ? DesignSystem.Colors.playGreen : Color.clear)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 4)
-                                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                            )
-                                    )
-                                }
-                                .buttonStyle(PlainButtonStyle())
+                }
+
+                if soundEnabled,
+                   alertManager.settings.alertType == .sound || alertManager.settings.alertType == .both {
+                    Section("Sound") {
+                        NavigationLink {
+                            SoundPickerScreen()
+                        } label: {
+                            HStack {
+                                Text("Tone")
+                                Spacer()
+                                Text(alertManager.settings.soundType.displayName)
+                                    .foregroundColor(.secondary)
                             }
                         }
-                        .padding(.horizontal, M.hPad)
-                    }
-                    
-                    // Sound Settings (if sound is enabled)
-                    if alertManager.settings.alertType == .sound || alertManager.settings.alertType == .both {
-                        VStack(spacing: 4) {
-                            Text("Sound Type")
-                                .font(.system(size: 8, weight: .medium))
-                                .foregroundColor(DesignSystem.Colors.textSecondary)
-                            
-                            ForEach(SoundType.allCases, id: \.self) { type in
-                                Button(action: {
-                                    alertManager.updateSoundType(type)
-                                }) {
-                                    HStack(spacing: 6) {
-                                        Text(type.displayName)
-                                            .font(.system(size: 8, weight: .medium))
-                                            .foregroundColor(alertManager.settings.soundType == type ? .white : DesignSystem.Colors.textSecondary)
-                                        
-                                        Spacer()
-                                        
-                                        if alertManager.settings.soundType == type {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 8, weight: .bold))
-                                                .foregroundColor(.white)
-                                        }
-                                    }
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .fill(alertManager.settings.soundType == type ? DesignSystem.Colors.focusPurple : Color.clear)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 4)
-                                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                            )
-                                    )
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                            }
-                            
-                            // Volume Slider
-                            VStack(spacing: 2) {
-                                HStack {
-                                    Text("Volume")
-                                        .font(.system(size: 8, weight: .medium))
-                                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                                    
-                                    Spacer()
-                                    
-                                    Text("\(Int(alertManager.settings.volume * 100))%")
-                                        .font(.system(size: 8, weight: .medium))
-                                        .foregroundColor(.white)
-                                }
-                                
-                                Slider(value: Binding(
-                                    get: { alertManager.settings.volume },
-                                    set: { alertManager.updateVolume($0) }
-                                ), in: 0...1, step: 0.1)
-                                .accentColor(DesignSystem.Colors.focusPurple)
-                            }
-                            .padding(.horizontal, 8)
+                        HStack {
+                            Text("Volume")
+                            Spacer()
+                            Text("\(Int(alertManager.settings.volume * 100))%")
+                                .foregroundColor(.secondary)
                         }
-                        .padding(.horizontal, M.hPad)
+                        Slider(value: Binding(
+                            get: { alertManager.settings.volume },
+                            set: { alertManager.updateVolume($0) }
+                        ), in: 0...1, step: 0.1)
+                        .accentColor(DesignSystem.Colors.focusPurple)
                     }
-                    
-                    Spacer()
+                }
+
+                if includesPhaseAlerts {
+                    Section("Per-phase (Pranayama)") {
+                        NavigationLink {
+                            PhaseAlertsScreen()
+                        } label: {
+                            HStack {
+                                Text("Per-phase alerts")
+                                Spacer()
+                                Text(activePhaseSummary)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.bottom, 8)
                 }
             }
-            .navigationBarHidden(true)
+            .listStyle(.carousel)
+            .navigationTitle("Alerts")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(DesignSystem.Colors.focusBlue)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(action: { alertManager.testAlert() }) {
+                        Image(systemName: "play.circle.fill")
+                            .foregroundColor(DesignSystem.Colors.focusBlue)
+                    }
+                    .accessibilityLabel("Test alert")
+                }
+            }
+            .onAppear {
+                if !soundEnabled,
+                   alertManager.settings.alertType == .sound || alertManager.settings.alertType == .both {
+                    alertManager.updateAlertType(.haptic)
+                }
+            }
         }
+    }
+
+    private var activePhaseSummary: String {
+        let phases = alertManager.settings.phaseAlerts
+        let active = [phases.inhaleAlert, phases.hold1Alert, phases.exhaleAlert, phases.hold2Alert]
+            .filter { $0 != .none }
+            .count
+        return active == 0 ? "Off" : "\(active) on"
+    }
+}
+
+// MARK: - Haptic Picker
+
+private struct HapticPickerScreen: View {
+    @StateObject private var alertManager = AlertManager.shared
+
+    var body: some View {
+        List {
+            ForEach(HapticType.allCases, id: \.self) { type in
+                Button {
+                    alertManager.updateHapticType(type)
+                } label: {
+                    HStack {
+                        Text(type.displayName)
+                            .foregroundColor(.white)
+                        Spacer()
+                        if alertManager.settings.hapticType == type {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(DesignSystem.Colors.playGreen)
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.carousel)
+        .navigationTitle("Haptic")
+    }
+}
+
+// MARK: - Sound Picker
+
+private struct SoundPickerScreen: View {
+    @StateObject private var alertManager = AlertManager.shared
+
+    var body: some View {
+        List {
+            ForEach(SoundType.allCases, id: \.self) { type in
+                Button {
+                    alertManager.updateSoundType(type)
+                } label: {
+                    HStack {
+                        Text(type.displayName)
+                            .foregroundColor(.white)
+                        Spacer()
+                        if alertManager.settings.soundType == type {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(DesignSystem.Colors.focusPurple)
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.carousel)
+        .navigationTitle("Sound")
+    }
+}
+
+// MARK: - Per-phase pranayama alerts
+
+private struct PhaseAlertsScreen: View {
+    var body: some View {
+        List {
+            ForEach([BreathingPhase.inhale, .hold1, .exhale, .hold2], id: \.self) { phase in
+                Section(phase.displayName) {
+                    PhaseAlertRow(phase: phase)
+                }
+            }
+        }
+        .listStyle(.carousel)
+        .navigationTitle("Per-phase")
     }
 }
 
 struct AlertSettingsView_Previews: PreviewProvider {
     static var previews: some View {
-        Group {
-            AlertSettingsView()
-                .previewDevice(PreviewDevice(rawValue: "Apple Watch SE (40mm) (2nd generation)"))
-            AlertSettingsView()
-                .previewDevice(PreviewDevice(rawValue: "Apple Watch Series 9 (45mm)"))
-        }
+        AlertSettingsView()
     }
 }

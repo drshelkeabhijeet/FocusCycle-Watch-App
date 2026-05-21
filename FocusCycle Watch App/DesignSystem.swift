@@ -34,23 +34,33 @@ struct DesignSystem {
         static let textPrimary = Color.white
         static let textSecondary = Color(white: 0.7)
         static let textTertiary = Color(white: 0.5)
+
+        static func timerStateColor(isRunning: Bool, isPaused: Bool = false) -> Color {
+            if isRunning { return playGreen }
+            if isPaused { return pauseOrange }
+            return textTertiary
+        }
     }
     
     // MARK: - Typography
     struct Typography {
+        static let heroTitle = Font.system(size: 22, weight: .semibold, design: .rounded)
         static let largeTimer = Font.system(size: 52, weight: .medium, design: .rounded)
         static let mediumTimer = Font.system(size: 42, weight: .medium, design: .rounded)
-        static let heading = Font.system(size: 20, weight: .semibold, design: .rounded)
+        static let heading = Font.system(size: 15, weight: .semibold, design: .rounded)
         static let subheading = Font.system(size: 17, weight: .medium, design: .rounded)
         static let body = Font.system(size: 15, weight: .regular, design: .rounded)
-        static let caption = Font.system(size: 13, weight: .regular, design: .rounded)
-        static let micro = Font.system(size: 11, weight: .medium, design: .rounded)
+        static let caption = Font.system(size: 10, weight: .medium, design: .rounded)
+        static let micro = Font.system(size: 9, weight: .medium, design: .rounded)
     }
     
     // MARK: - Spacing
     struct Spacing {
+        static let xxs: CGFloat = 2
         static let xs: CGFloat = 4
+        static let xsPlus: CGFloat = 6
         static let sm: CGFloat = 8
+        static let smPlus: CGFloat = 10
         static let md: CGFloat = 12
         static let lg: CGFloat = 16
         static let xl: CGFloat = 20
@@ -63,6 +73,9 @@ struct DesignSystem {
         static let standard = SwiftUI.Animation.easeInOut(duration: 0.3)
         static let smooth = SwiftUI.Animation.easeInOut(duration: 0.5)
         static let bounce = SwiftUI.Animation.spring(response: 0.4, dampingFraction: 0.6)
+        static let phaseTransition = SwiftUI.Animation.spring(response: 0.34, dampingFraction: 0.8)
+        static let progressTransition = SwiftUI.Animation.easeInOut(duration: 0.35)
+        static let sheetTransition = SwiftUI.Animation.easeInOut(duration: 0.28)
     }
     
     // MARK: - Corner Radius
@@ -88,7 +101,7 @@ struct CardStyle: ViewModifier {
                     .overlay(
                         RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.large)
                             .strokeBorder(
-                                isLuminanceReduced ? Color.clear : DesignSystem.Colors.focusBlue.opacity(0.3),
+                                isLuminanceReduced ? Color.clear : Color.white.opacity(0.14),
                                 lineWidth: 1
                             )
                     )
@@ -127,7 +140,7 @@ struct ProgressRing: View {
                     style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
-                .animation(.easeInOut(duration: 0.5), value: progress)
+                .animation(DesignSystem.Animation.progressTransition, value: progress)
         }
     }
 }

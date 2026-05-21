@@ -30,14 +30,43 @@ struct SessionRecord: Codable, Identifiable {
     let date: Date
     let duration: Int // seconds
     let pattern: String? // for pranayama (e.g., "anulom")
-    
-    init(activityType: ActivityType, duration: Int, pattern: String? = nil) {
+    // Optional health metrics; nil when HealthKit unavailable.
+    var avgHeartRate: Double?
+    var avgRespiratoryRate: Double?
+    var activeEnergyKcal: Double?
+    var hrvPreSdnnMs: Double?
+    var hrvPostSdnnMs: Double?
+    var spo2PrePercent: Double?
+    var spo2PostPercent: Double?
+
+    init(activityType: ActivityType,
+         duration: Int,
+         pattern: String? = nil,
+         metrics: SessionHealthMetrics? = nil) {
         self.id = UUID()
         self.activityType = activityType
         self.date = Date()
         self.duration = duration
         self.pattern = pattern
+        self.avgHeartRate = metrics?.avgHeartRate
+        self.avgRespiratoryRate = metrics?.avgRespiratoryRate
+        self.activeEnergyKcal = metrics?.activeEnergyKcal
+        self.hrvPreSdnnMs = metrics?.hrvPreSdnnMs
+        self.hrvPostSdnnMs = metrics?.hrvPostSdnnMs
+        self.spo2PrePercent = metrics?.spo2PrePercent
+        self.spo2PostPercent = metrics?.spo2PostPercent
     }
+}
+
+/// Plain bag of optional values collected during a practice.
+struct SessionHealthMetrics {
+    var avgHeartRate: Double?
+    var avgRespiratoryRate: Double?
+    var activeEnergyKcal: Double?
+    var hrvPreSdnnMs: Double?
+    var hrvPostSdnnMs: Double?
+    var spo2PrePercent: Double?
+    var spo2PostPercent: Double?
 }
 
 // MARK: - Streak Data
@@ -96,8 +125,14 @@ class StreakManager: ObservableObject {
     }
     
     // MARK: - Session Recording
-    func recordSession(_ activityType: ActivityType, duration: Int, pattern: String? = nil) {
-        let session = SessionRecord(activityType: activityType, duration: duration, pattern: pattern)
+    func recordSession(_ activityType: ActivityType,
+                       duration: Int,
+                       pattern: String? = nil,
+                       metrics: SessionHealthMetrics? = nil) {
+        let session = SessionRecord(activityType: activityType,
+                                    duration: duration,
+                                    pattern: pattern,
+                                    metrics: metrics)
         
         var streakData = streaks[activityType] ?? StreakData()
         
@@ -112,33 +147,58 @@ class StreakManager: ObservableObject {
         // Save
         streaks[activityType] = streakData
         saveStreaks()
+        WatchConnectivityManager.shared.pushSessionEvent(session)
+        WatchConnectivityManager.shared.pushLatestSnapshot()
     }
     
     private func updateStreaks(for streakData: inout StreakData) {
         let calendar = Calendar.current
-        let today = Date()
-        
-        // Sort sessions by date (newest first)
-        let sortedSessions = streakData.sessions.sorted { $0.date > $1.date }
-        
-        // Calculate current streak
+        let uniqueDays = Set(streakData.sessions.map { calendar.startOfDay(for: $0.date) })
+
+        // Current streak counts consecutive calendar days (not sessions),
+        // anchored at today if present, otherwise yesterday.
         var currentStreak = 0
-        var checkDate = today
-        
-        for session in sortedSessions {
-            if calendar.isDate(session.date, inSameDayAs: checkDate) {
-                currentStreak += 1
-                checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate) ?? checkDate
-            } else if calendar.isDate(session.date, inSameDayAs: calendar.date(byAdding: .day, value: -1, to: checkDate) ?? checkDate) {
-                currentStreak += 1
-                checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate) ?? checkDate
+        var cursor = calendar.startOfDay(for: Date())
+
+        if !uniqueDays.contains(cursor) {
+            if let yesterday = calendar.date(byAdding: .day, value: -1, to: cursor), uniqueDays.contains(yesterday) {
+                cursor = yesterday
             } else {
-                break
+                streakData.currentStreak = 0
+                streakData.longestStreak = max(streakData.longestStreak, longestStreak(in: uniqueDays, calendar: calendar))
+                return
             }
         }
-        
+
+        while uniqueDays.contains(cursor) {
+            currentStreak += 1
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = previousDay
+        }
+
         streakData.currentStreak = currentStreak
-        streakData.longestStreak = max(streakData.longestStreak, currentStreak)
+        streakData.longestStreak = max(streakData.longestStreak, longestStreak(in: uniqueDays, calendar: calendar))
+    }
+
+    private func longestStreak(in uniqueDays: Set<Date>, calendar: Calendar) -> Int {
+        let sortedDays = uniqueDays.sorted()
+        guard !sortedDays.isEmpty else { return 0 }
+
+        var longest = 1
+        var run = 1
+
+        for idx in 1..<sortedDays.count {
+            let prev = sortedDays[idx - 1]
+            let current = sortedDays[idx]
+            let delta = calendar.dateComponents([.day], from: prev, to: current).day ?? 0
+            if delta == 1 {
+                run += 1
+            } else {
+                run = 1
+            }
+            longest = max(longest, run)
+        }
+        return longest
     }
     
     // MARK: - Streak Queries
@@ -170,8 +230,11 @@ class StreakManager: ObservableObject {
     
     // MARK: - Statistics
     func getTotalMinutes(for activityType: ActivityType) -> Int {
+        // Sum seconds first, then divide — otherwise short sessions
+        // (each < 60s) are floored to 0 and never contribute.
         let streakData = getStreakData(for: activityType)
-        return streakData.sessions.reduce(0) { $0 + ($1.duration / 60) }
+        let totalSeconds = streakData.sessions.reduce(0) { $0 + $1.duration }
+        return totalSeconds / 60
     }
     
     func getAverageSessionDuration(for activityType: ActivityType) -> Int {
@@ -186,5 +249,20 @@ class StreakManager: ObservableObject {
         streaks.removeAll()
         initializeStreaks()
         saveStreaks()
+        WatchConnectivityManager.shared.pushLatestSnapshot()
+    }
+
+    func companionStreakSummaries() -> [String: CompanionStreakSummary] {
+        var result: [String: CompanionStreakSummary] = [:]
+        for activity in ActivityType.allCases {
+            let data = getStreakData(for: activity)
+            result[activity.rawValue] = CompanionStreakSummary(
+                currentStreak: data.currentStreak,
+                longestStreak: data.longestStreak,
+                totalSessions: data.totalSessions,
+                totalMinutes: getTotalMinutes(for: activity)
+            )
+        }
+        return result
     }
 }

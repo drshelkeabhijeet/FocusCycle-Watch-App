@@ -56,9 +56,9 @@ class ComplicationController: NSObject, CLKComplicationDataSource {
         let hold = defaults.integer(forKey: "userHoldSeconds")
         let rest = defaults.integer(forKey: "userRestSeconds")
         if hold > 0 && rest >= 0 {
-            return "Yoga"
+            return "Next"
         }
-        return "Yoga"
+        return "Focus"
     }
 
     private func currentDetailLabel() -> String {
@@ -68,38 +68,44 @@ class ComplicationController: NSObject, CLKComplicationDataSource {
         if hold > 0 {
             return "H:\(hold)s R:\(max(0, rest))s"
         }
-        return "Hold/Rest"
+        return "Start Session"
     }
 
     private func template(for family: CLKComplicationFamily) -> CLKComplicationTemplate? {
-        // Use a single imageset named "ComplicationLogo" (backed by AppIcon-200.png)
-        let img = UIImage(named: "ComplicationLogo") ?? UIImage(systemName: "figure.yoga")
-        guard let ui = img else { return nil }
+        let logo = UIImage(named: "ComplicationLogo") ?? UIImage(systemName: "figure.yoga")
+        guard let logo else { return nil }
+
+        let title = CLKSimpleTextProvider(text: currentPhaseLabel())
+        let detail = CLKSimpleTextProvider(text: currentDetailLabel())
+
         switch family {
         case .modularSmall:
             return CLKComplicationTemplateModularSmallSimpleImage(
-                imageProvider: CLKImageProvider(onePieceImage: ui)
+                imageProvider: CLKImageProvider(onePieceImage: logo)
             )
         case .utilitarianSmall:
             return CLKComplicationTemplateUtilitarianSmallSquare(
-                imageProvider: CLKImageProvider(onePieceImage: ui)
+                imageProvider: CLKImageProvider(onePieceImage: logo)
             )
         case .circularSmall:
             return CLKComplicationTemplateCircularSmallSimpleImage(
-                imageProvider: CLKImageProvider(onePieceImage: ui)
+                imageProvider: CLKImageProvider(onePieceImage: logo)
             )
         case .graphicCircular:
             return CLKComplicationTemplateGraphicCircularImage(
-                imageProvider: CLKFullColorImageProvider(fullColorImage: ui)
+                imageProvider: CLKFullColorImageProvider(fullColorImage: logo)
             )
         case .graphicCorner:
             return CLKComplicationTemplateGraphicCornerTextImage(
-                textProvider: CLKSimpleTextProvider(text: ""),
-                imageProvider: CLKFullColorImageProvider(fullColorImage: ui)
+                textProvider: detail,
+                imageProvider: CLKFullColorImageProvider(fullColorImage: logo)
             )
         case .graphicRectangular:
-            return CLKComplicationTemplateGraphicRectangularFullImage(
-                imageProvider: CLKFullColorImageProvider(fullColorImage: ui)
+            return CLKComplicationTemplateGraphicRectangularStandardBody(
+                headerImageProvider: CLKFullColorImageProvider(fullColorImage: logo),
+                headerTextProvider: CLKSimpleTextProvider(text: "Yoga Asana Timer"),
+                body1TextProvider: title,
+                body2TextProvider: detail
             )
         default:
             return nil

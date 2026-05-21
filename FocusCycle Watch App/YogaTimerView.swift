@@ -2,21 +2,23 @@ import SwiftUI
 import WatchKit
 
 struct YogaTimerView: View {
+    var initiallyShowSettings: Bool = false
     @State var elapsedSeconds: Int = 0
     @State private var baseStartDate: Date? = nil
     @State private var accumulatedPausedSeconds: Int = 0
     @State var isTimerRunning: Bool = false
     @State private var showingSettings: Bool = false
     @StateObject private var heart = HeartRateManager()
+    @StateObject private var prefs = YogaPreferences.shared
     // MARK: - App Mode
     @State private var operatingMode: OperatingMode = .multipleIntervals
-    
+
     // MARK: - Single Interval Settings
     // Store single interval duration in seconds (10s increments)
     @State private var singleIntervalDurationSeconds: Int = 60
     @State private var singleIntervalSequenceDurationMinutes: Int = 30
     @State private var singleIntervalHaptic: AppHaptic = AppHaptic.notification
-    
+
     // MARK: - Multiple Interval Settings
     @State private var multipleIntervals: [CustomIntervalSetting] = []
     // Interpreted as number of asanas (each asana = Hold + Rest)
@@ -28,11 +30,15 @@ struct YogaTimerView: View {
     
     // Internal state
     @State private var lastHapticTriggerSecond: Int = -1
-    @State private var lastMultipleHapticTriggerSeconds: [UUID: Int] = [:]
     @State private var mindfulStartDate: Date? = nil
+    private let healthCoordinator = SessionHealthCoordinator()
     // Multiple interval sequencing (0 = Asana Hold, 1 = Rest)
     @State private var multiPhaseIndex: Int = 0
     @State private var multiPhaseStartElapsed: Int = 0
+    @State private var hasPresentedInitialSettings = false
+    @State private var completionSummary = ""
+    @State private var showingCompletionSummary = false
+    @State private var statusMessage: String?
     
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     private let asanaCycleIntervalSeconds: Int = 8
@@ -119,10 +125,10 @@ struct YogaTimerView: View {
         withAnimation(DesignSystem.Animation.bounce) {
             isTimerRunning.toggle()
             if isTimerRunning {
+                LaunchStateStore.remember(.yoga)
                 if elapsedSeconds == 0 {
                     // Fresh start of a new session
                     lastHapticTriggerSecond = -1
-                    lastMultipleHapticTriggerSeconds = [:]
                     // Initialize sequencing for multiple intervals only on a fresh start
                     if operatingMode == .multipleIntervals {
                         // Ensure exactly two phases exist: Hold and Rest
@@ -154,10 +160,15 @@ struct YogaTimerView: View {
                 lastAsanaChangeSecond = elapsedSeconds
                 // Start extended runtime immediately; request HealthKit in parallel
                 startExtendedSession()
-                HealthKitManager.shared.requestAuthorizationIfNeeded { _ in }
+                HealthKitManager.shared.requestAuthorizationIfNeeded { granted in
+                    DispatchQueue.main.async {
+                        statusMessage = granted ? nil : "Health access unavailable"
+                    }
+                }
                 // Start live heart rate streaming
-                heart.start()
-                
+                heart.start(activityType: .yoga)
+                healthCoordinator.captureBaseline()
+
             } else {
                 // Pausing the timer should end extended runtime to save battery
                 stopExtendedSession()
@@ -172,46 +183,59 @@ struct YogaTimerView: View {
     }
     
     func resetTimer() {
+        endSession(showSummary: false)
+    }
+
+    private func endSession(showSummary: Bool) {
         withAnimation(DesignSystem.Animation.standard) {
+            let completedSeconds = elapsedSeconds
             if let start = mindfulStartDate {
                 HealthKitManager.shared.saveMindfulSession(start: start, end: Date())
                 mindfulStartDate = nil
             }
-            // Store heart rate samples as a session in history
             SessionLogManager.shared.appendSession(from: heart.samples)
-            
-            // Record session for streak tracking
-            if elapsedSeconds > 0 {
-                StreakManager.shared.recordSession(.yoga, duration: elapsedSeconds)
-            }
-            
+
             isTimerRunning = false
             elapsedSeconds = 0
             accumulatedPausedSeconds = 0
             baseStartDate = nil
             lastHapticTriggerSecond = -1
-            lastMultipleHapticTriggerSeconds = [:]
             stopExtendedSession()
-            heart.stop()
+
+            heart.stop { aggregate in
+                guard completedSeconds > 0 else { return }
+                healthCoordinator.finalize(aggregate: aggregate) { metrics in
+                    StreakManager.shared.recordSession(.yoga, duration: completedSeconds, metrics: metrics)
+                }
+            }
+
+            if showSummary && completedSeconds > 0 {
+                let minutes = completedSeconds / 60
+                let seconds = completedSeconds % 60
+                completionSummary = minutes > 0 ? "\(minutes)m \(seconds)s completed" : "\(seconds)s completed"
+                showingCompletionSummary = true
+            }
         }
     }
     
     // MARK: - Body
     @Environment(\.dynamicTypeSize) private var dyn
+    @Environment(\.presentationMode) private var presentationMode
 
     var body: some View {
         NavigationView {
-            ZStack {
+            ZStack(alignment: .topLeading) {
                 DesignSystem.Colors.backgroundGradient
                     .ignoresSafeArea()
 
                 let M = WatchMetrics.current(dynamicType: dyn)
                 let R = M.ringDiameter
+                let controlSpacing = max(14, M.buttonSpacing)
 
-                VStack(spacing: 8) {
+                VStack(spacing: 10) {
                     // Top spacer with safe area consideration
                     Spacer()
-                        .frame(maxHeight: 20)
+                        .frame(maxHeight: 12)
 
                     // Timer Display with Progress Ring
                     ZStack {
@@ -268,15 +292,15 @@ struct YogaTimerView: View {
                     }
 
                     // Controls with proper spacing
-                    VStack(spacing: 12) {
+                    VStack(spacing: 10) {
                         ViewThatFits(in: .horizontal) {
-                            HStack(spacing: M.buttonSpacing) {
+                            HStack(spacing: controlSpacing) {
                                 controlsPlayButton(buttonSize: M.buttonSize, scale: 1.0, R: R)
                                 controlsResetButton(buttonSize: M.buttonSize, scale: 1.0, R: R)
                             }
                             .frame(maxWidth: .infinity)
 
-                            VStack(spacing: 12) {
+                            VStack(spacing: 10) {
                                 controlsPlayButton(buttonSize: M.buttonSize, scale: 1.0, R: R)
                                 controlsResetButton(buttonSize: M.buttonSize, scale: 1.0, R: R)
                             }
@@ -287,11 +311,41 @@ struct YogaTimerView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, M.hPad)
 
+                    if let effectiveStatus = statusMessage ?? (!heart.statusText.isEmpty ? heart.statusText : nil) {
+                        Text(effectiveStatus)
+                            .font(DesignSystem.Typography.micro)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .padding(.horizontal, M.hPad)
+                    }
+
                     // Bottom spacer with safe area consideration
                     Spacer()
-                        .frame(maxHeight: 20)
+                        .frame(maxHeight: 12)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // Floating close button — overlay so it doesn't displace timer layout.
+                Button {
+                    isTimerRunning = false
+                    if let start = mindfulStartDate {
+                        HealthKitManager.shared.saveMindfulSession(start: start, end: Date())
+                        mindfulStartDate = nil
+                    }
+                    stopExtendedSession()
+                    presentationMode.wrappedValue.dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.9))
+                        .frame(width: 24, height: 24)
+                        .background(Circle().fill(Color.black.opacity(0.35)))
+                }
+                .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel("Close")
+                .padding(.leading, 6)
+                .padding(.top, 4)
             }
             .navigationBarHidden(true)
         }
@@ -306,6 +360,31 @@ struct YogaTimerView: View {
             )
             .environmentObject(heart)
         }
+        .onAppear {
+            LaunchStateStore.remember(.yoga)
+            // Seed local state from the shared preferences store the first time the
+            // timer appears so customizations made elsewhere are picked up.
+            operatingMode = prefs.operatingMode
+            singleIntervalDurationSeconds = prefs.singleIntervalDurationSeconds
+            singleIntervalSequenceDurationMinutes = prefs.singleIntervalSequenceDurationMinutes
+            multipleIntervalsSequenceDurationMinutes = prefs.asanaCount
+            multipleIntervals = prefs.makeIntervals()
+            if initiallyShowSettings && !hasPresentedInitialSettings {
+                hasPresentedInitialSettings = true
+                showingSettings = true
+            }
+        }
+        .onChange(of: operatingMode) { _, new in prefs.operatingMode = new }
+        .onChange(of: singleIntervalDurationSeconds) { _, new in prefs.singleIntervalDurationSeconds = new }
+        .onChange(of: singleIntervalSequenceDurationMinutes) { _, new in prefs.singleIntervalSequenceDurationMinutes = new }
+        .onChange(of: multipleIntervalsSequenceDurationMinutes) { _, new in prefs.asanaCount = new }
+        .onChange(of: multipleIntervals) { _, new in prefs.updateIntervals(new) }
+        .alert("Session Complete", isPresented: $showingCompletionSummary) {
+            Button("Done", role: .cancel) { }
+        } message: {
+            Text(completionSummary)
+        }
+        .animation(DesignSystem.Animation.sheetTransition, value: showingCompletionSummary)
         .onReceive(timer) { _ in
             guard isTimerRunning else { return }
             let previous = elapsedSeconds
@@ -329,8 +408,8 @@ struct YogaTimerView: View {
             let currentOverallSequenceDurationSeconds: Int = (operatingMode == .singleInterval) ?
                 singleIntervalSequenceDurationSeconds : multipleIntervalsSequenceDurationSeconds
 
-            if currentOverallSequenceDurationSeconds > 0 && elapsedSeconds > currentOverallSequenceDurationSeconds {
-                resetTimer()
+            if currentOverallSequenceDurationSeconds > 0 && elapsedSeconds >= currentOverallSequenceDurationSeconds {
+                endSession(showSummary: true)
                 return
             }
 
@@ -373,31 +452,24 @@ struct YogaTimerView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .extendedRuntimeSessionDidInvalidateAppNotification)) { _ in
-            // Extended runtime ended by the system; pause UI, clear session reference,
-            // and persist a mindful session if one was in progress.
-            if self.isTimerRunning {
-                self.isTimerRunning = false
+            // Extended runtime ended by the system; pause UI and timer anchors safely.
+            if isTimerRunning {
+                isTimerRunning = false
+                accumulatedPausedSeconds = elapsedSeconds
+                baseStartDate = nil
+                heart.stop()
+                statusMessage = "Session paused by system"
             }
             // Save mindful session if started
-            if let start = self.mindfulStartDate {
+            if let start = mindfulStartDate {
                 HealthKitManager.shared.saveMindfulSession(start: start, end: Date())
-                self.mindfulStartDate = nil
+                mindfulStartDate = nil
             }
-            
         }
         .onReceive(NotificationCenter.default.publisher(for: .appDidEnterBackground)) { _ in
             // Ensure extended runtime is active when going to background
             if isTimerRunning {
                 startExtendedSession()
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .extendedRuntimeSessionDidInvalidateAppNotification)) { _ in
-            // Handle extended runtime session invalidation
-            if isTimerRunning {
-                // Try to restart the session
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    startExtendedSession()
-                }
             }
         }
     }
@@ -415,6 +487,7 @@ extension YogaTimerView {
                     .overlay(
                         Circle().stroke(Color.white.opacity(0.3), lineWidth: max(1, 2 * scale))
                     )
+                    .animation(DesignSystem.Animation.phaseTransition, value: isTimerRunning)
                 if isTimerRunning {
                     AnyView(
                         ZStack {
@@ -445,7 +518,9 @@ extension YogaTimerView {
         }
         .accessibilityLabel(isTimerRunning ? "Pause timer" : "Start timer")
         .accessibilityHint(isTimerRunning ? "Pauses the current session" : "Starts the focus session")
+        .accessibilityIdentifier("yoga-start-pause")
         .buttonStyle(PlainButtonStyle())
+        .animation(DesignSystem.Animation.phaseTransition, value: isTimerRunning)
     }
 
     @ViewBuilder
@@ -458,6 +533,7 @@ extension YogaTimerView {
                     .overlay(
                         Circle().stroke(Color.white.opacity(0.3), lineWidth: max(1, 2 * scale))
                     )
+                    .animation(DesignSystem.Animation.phaseTransition, value: elapsedSeconds)
                 ZStack {
                     Image("Padmasana")
                         .renderingMode(.template)
@@ -472,6 +548,7 @@ extension YogaTimerView {
         }
         .accessibilityLabel("Reset timer")
         .accessibilityHint("Resets the session and saves mindful minutes")
+        .accessibilityIdentifier("yoga-stop-reset")
         .buttonStyle(PlainButtonStyle())
         .disabled(elapsedSeconds == 0 && !isTimerRunning)
     }

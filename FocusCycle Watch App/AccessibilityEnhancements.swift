@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchKit
 
 // MARK: - Accessibility Extensions
 extension View {
@@ -48,37 +49,24 @@ extension View {
 // MARK: - Accessibility Announcements
 struct AccessibilityAnnouncer {
     static func announceIntervalComplete(hapticName: String) {
-        let announcement = "Interval complete. \(hapticName) alert played."
-        AccessibilityNotification.Announcement(announcement).post()
+        post("Interval complete. \(hapticName) alert played.")
     }
-    
-    static func announceTimerStateChange(isRunning: Bool) {
-        let announcement = isRunning ? "Timer started" : "Timer paused"
-        AccessibilityNotification.Announcement(announcement).post()
-    }
-    
-    static func announceTimerReset() {
-        AccessibilityNotification.Announcement("Timer reset").post()
-    }
-    
-    static func announceModeChange(mode: OperatingMode) {
-        let announcement = "Switched to \(mode.displayName) mode"
-        AccessibilityNotification.Announcement(announcement).post()
-    }
-}
 
-// MARK: - Accessibility Notification
-struct AccessibilityNotification {
-    struct Announcement {
-        let message: String
-        
-        init(_ message: String) {
-            self.message = message
-        }
-        
-        func post() {
-            // WatchOS doesn't have direct accessibility announcement API
-            // This would be handled by VoiceOver automatically
+    static func announceTimerStateChange(isRunning: Bool) {
+        post(isRunning ? "Timer started" : "Timer paused")
+    }
+
+    static func announceTimerReset() {
+        post("Timer reset")
+    }
+
+    static func announceModeChange(mode: OperatingMode) {
+        post("Switched to \(mode.displayName) mode")
+    }
+
+    private static func post(_ message: String) {
+        if #available(watchOS 10.0, *) {
+            SwiftUI.AccessibilityNotification.Announcement(message).post()
         }
     }
 }
@@ -142,44 +130,6 @@ extension DesignSystem.Colors {
     
     enum TextLevel {
         case primary, secondary, tertiary
-    }
-}
-
-// MARK: - VoiceOver Optimized Timer View
-struct AccessibleTimerView: View {
-    let time: String
-    let isRunning: Bool
-    let intervalProgress: Double
-    let sessionProgress: Double
-    let nextIntervalIn: String?
-    
-    @Environment(\.accessibilityVoiceOverEnabled) var voiceOverEnabled
-    
-    var body: some View {
-        if voiceOverEnabled {
-            // Simplified view for VoiceOver
-            VStack(spacing: DesignSystem.Spacing.md) {
-                Text(time)
-                    .font(DesignSystem.Typography.largeTimer)
-                    .accessibilityFocusTimer(time: time, isRunning: isRunning)
-                
-                if let next = nextIntervalIn {
-                    Text("Next interval in \(next)")
-                        .font(DesignSystem.Typography.caption)
-                        .accessibilityLabel("Next interval in \(next)")
-                }
-                
-                HStack {
-                    Text("Interval: \(Int(intervalProgress * 100))%")
-                    Text("Session: \(Int(sessionProgress * 100))%")
-                }
-                .font(DesignSystem.Typography.caption)
-                .accessibilityElement(children: .combine)
-            }
-        } else {
-            // Regular visual timer (already implemented in ContentView)
-            EmptyView()
-        }
     }
 }
 

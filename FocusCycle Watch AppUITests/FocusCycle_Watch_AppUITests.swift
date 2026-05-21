@@ -23,12 +23,26 @@ final class FocusCycle_Watch_AppUITests: XCTestCase {
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
+    func testLandingShowsPrimaryQuickStartActions() throws {
         let app = XCUIApplication()
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        XCTAssertTrue(app.buttons["yoga-quick-start"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["pranayama-quick-start"].exists)
+        XCTAssertTrue(app.buttons["meditation-quick-start"].exists)
+    }
+
+    @MainActor
+    func testYogaTimerControlsAppearAfterQuickStart() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let yogaStart = app.buttons["yoga-quick-start"]
+        XCTAssertTrue(yogaStart.waitForExistence(timeout: 5))
+        yogaStart.tap()
+
+        XCTAssertTrue(app.buttons["yoga-start-pause"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["yoga-stop-reset"].exists)
     }
 
     @MainActor

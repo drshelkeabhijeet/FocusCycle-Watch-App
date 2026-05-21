@@ -38,11 +38,11 @@ struct WatchMetrics {
         }
 
         // Base geometry - more conservative sizing to prevent overflow
-        var ring = scale(100, 120, 150)
+        var ring = scale(102, 124, 152)
         var outer = scale(6, 8, 10)
         var single = scale(4, 6, 8)
         var multi = scale(3, 5, 7)
-        var btn = scale(40, 48, 56)
+        var btn = scale(40, 50, 58)
         // Moderate button size increase
         btn = max(40, btn * 1.15)
 
@@ -56,10 +56,10 @@ struct WatchMetrics {
         let multiBase = max(74, ring - (outer + multi) - 6)
         let multiStep = multi + 4
         // Conservative button spacing
-        let spacing = scale(16, 24, 32)
+        let spacing = scale(14, 22, 30)
 
         // Paddings and overlay - more conservative
-        let hPad = scale(6, 8, 10)
+        let hPad = scale(6, 9, 12)
         let topPad = scale(6, 8, 10)
         let bottomPad = scale(8, 12, 16)
         let controlPad = scale(16, 20, 24)

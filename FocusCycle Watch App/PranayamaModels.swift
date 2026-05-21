@@ -83,9 +83,10 @@ class PranayamaSettingsManager: ObservableObject {
     static let shared = PranayamaSettingsManager()
     
     @Published var patterns: [PranayamaType: PranayamaPattern] = [:]
+    private let storageKey = "FocusCycle_PranayamaPatterns"
     
     private init() {
-        loadDefaultPatterns()
+        loadPatterns()
     }
     
     func loadDefaultPatterns() {
@@ -115,6 +116,7 @@ class PranayamaSettingsManager: ObservableObject {
             hold2Duration: 1,
             cycles: 12
         )
+        savePatterns()
     }
     
     func getPattern(for type: PranayamaType) -> PranayamaPattern {
@@ -130,10 +132,69 @@ class PranayamaSettingsManager: ObservableObject {
     
     func updatePattern(_ pattern: PranayamaPattern) {
         patterns[pattern.type] = pattern
+        savePatterns()
+        WatchConnectivityManager.shared.pushLatestSnapshotDebounced()
     }
     
     var allPatterns: [PranayamaPattern] {
         return PranayamaType.allCases.map { getPattern(for: $0) }
+    }
+
+    private func loadPatterns() {
+        guard let data = UserDefaults.standard.data(forKey: storageKey) else {
+            loadDefaultPatterns()
+            return
+        }
+        guard let decoded = try? JSONDecoder().decode([String: PranayamaPatternValue].self, from: data) else {
+            loadDefaultPatterns()
+            return
+        }
+        var rebuilt: [PranayamaType: PranayamaPattern] = [:]
+        for (key, value) in decoded {
+            guard let type = PranayamaType(rawValue: key) else { continue }
+            rebuilt[type] = value.toPattern(type: type)
+        }
+        if rebuilt.isEmpty {
+            loadDefaultPatterns()
+        } else {
+            patterns = rebuilt
+        }
+    }
+
+    private func savePatterns() {
+        let encoded = patterns.reduce(into: [String: PranayamaPatternValue]()) { result, pair in
+            result[pair.key.rawValue] = PranayamaPatternValue(from: pair.value)
+        }
+        if let data = try? JSONEncoder().encode(encoded) {
+            UserDefaults.standard.set(data, forKey: storageKey)
+        }
+    }
+}
+
+private struct PranayamaPatternValue: Codable {
+    let inhaleDuration: Int
+    let hold1Duration: Int
+    let exhaleDuration: Int
+    let hold2Duration: Int
+    let cycles: Int
+
+    init(from pattern: PranayamaPattern) {
+        inhaleDuration = pattern.inhaleDuration
+        hold1Duration = pattern.hold1Duration
+        exhaleDuration = pattern.exhaleDuration
+        hold2Duration = pattern.hold2Duration
+        cycles = pattern.cycles
+    }
+
+    func toPattern(type: PranayamaType) -> PranayamaPattern {
+        PranayamaPattern(
+            type: type,
+            inhaleDuration: inhaleDuration,
+            hold1Duration: hold1Duration,
+            exhaleDuration: exhaleDuration,
+            hold2Duration: hold2Duration,
+            cycles: cycles
+        )
     }
 }
 
@@ -152,6 +213,7 @@ class PranayamaSession: ObservableObject {
     private var sessionStartTime: Date?
     private var currentPhaseIndex: Int = 0
     private var currentPhaseDuration: Int = 0
+    private var pausedElapsedTime: Int = 0
     
     init(pattern: PranayamaPattern) {
         self.pattern = pattern
@@ -159,31 +221,44 @@ class PranayamaSession: ObservableObject {
     }
     
     func start() {
-        print("PranayamaSession.start() called, isActive: \(isActive)")
-        guard !isActive else { 
-            print("Session already active, ignoring start")
-            return 
-        }
-        
+        guard !isActive else { return }
+
         isActive = true
-        sessionStartTime = Date()
-        phaseStartTime = Date()
-        currentPhaseIndex = 0
-        currentCycle = 1
-        elapsedTime = 0
-        
-        let firstPhase = pattern.phases[0]
-        currentPhase = firstPhase.0
-        currentPhaseDuration = firstPhase.1
-        phaseProgress = 0.0
-        cycleProgress = 0.0
-        print("Pranayama session started successfully")
+
+        if sessionStartTime == nil && elapsedTime == 0 {
+            // Fresh session start.
+            sessionStartTime = Date()
+            phaseStartTime = Date()
+            currentPhaseIndex = 0
+            currentCycle = 1
+            elapsedTime = 0
+            pausedElapsedTime = 0
+            remainingTime = pattern.totalDuration
+
+            let firstPhase = pattern.phases[0]
+            currentPhase = firstPhase.0
+            currentPhaseDuration = firstPhase.1
+            phaseProgress = 0.0
+            cycleProgress = 0.0
+        } else {
+            // Resume: move start time so elapsed continues from pause point.
+            sessionStartTime = Date().addingTimeInterval(TimeInterval(-pausedElapsedTime))
+            phaseStartTime = Date()
+            updateProgress()
+        }
     }
-    
+
     func pause() {
-        print("PranayamaSession.pause() called, isActive: \(isActive)")
+        // Snapshot the precise elapsed at the moment of pause rather than relying on
+        // the most recent `updateProgress` tick (which may be up to 100ms stale).
+        if let startTime = sessionStartTime, isActive {
+            let precise = max(0, Int(Date().timeIntervalSince(startTime)))
+            pausedElapsedTime = precise
+            elapsedTime = precise
+        } else {
+            pausedElapsedTime = elapsedTime
+        }
         isActive = false
-        print("Pranayama session paused")
     }
     
     func reset() {
@@ -197,6 +272,7 @@ class PranayamaSession: ObservableObject {
         currentPhaseIndex = 0
         phaseStartTime = nil
         sessionStartTime = nil
+        pausedElapsedTime = 0
     }
     
     func updateProgress() {

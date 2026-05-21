@@ -14,6 +14,10 @@ struct FocusCycle_Watch_AppApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear {
+                    WatchConnectivityManager.shared.activate()
+                    WatchConnectivityManager.shared.pushLatestSnapshot()
+                }
                 .onChange(of: scenePhase) { _, phase in
                     handleScenePhaseChange(phase)
                 }
@@ -28,6 +32,7 @@ struct FocusCycle_Watch_AppApp: App {
         case .active:
             // App is becoming active - resume normal operation
             NotificationCenter.default.post(name: .appDidBecomeActive, object: nil)
+            WatchConnectivityManager.shared.pushLatestSnapshot()
         case .inactive:
             // App is becoming inactive - prepare for background
             NotificationCenter.default.post(name: .appWillResignActive, object: nil)

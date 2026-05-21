@@ -55,12 +55,12 @@ enum HapticType: String, CaseIterable, Codable {
     var hapticType: WKHapticType {
         switch self {
         case .light: return .click
-        case .medium: return .click
-        case .heavy: return .click
+        case .medium: return .notification
+        case .heavy: return .start
         case .success: return .success
         case .warning: return .notification
         case .error: return .failure
-        case .selection: return .click
+        case .selection: return .directionUp
         case .notification: return .notification
         }
     }
@@ -148,12 +148,18 @@ class AlertManager: ObservableObject {
     private let userDefaults = UserDefaults.standard
     private let settingsKey = "FocusCycle_AlertSettings"
     private var audioPlayer: AVAudioPlayer?
-    
+
+    /// True when at least one bundled sound asset is shipped with the app.
+    /// Used by Settings UI to hide non-functional sound pickers when no audio assets exist.
+    static var hasBundledSoundAssets: Bool = {
+        SoundType.allCases.contains { Bundle.main.url(forResource: $0.fileName, withExtension: nil) != nil }
+    }()
+    private var audioSessionConfigured = false
+
     private init() {
         loadSettings()
-        setupAudioSession()
     }
-    
+
     // MARK: - Data Persistence
     private func loadSettings() {
         if let data = userDefaults.data(forKey: settingsKey),
@@ -167,13 +173,17 @@ class AlertManager: ObservableObject {
             userDefaults.set(encoded, forKey: settingsKey)
         }
     }
-    
-    private func setupAudioSession() {
+
+    /// Lazily activates an audio session the first time a sound plays.
+    /// Idempotent and tolerant of interruptions.
+    private func ensureAudioSessionConfigured() {
+        guard !audioSessionConfigured else { return }
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
             try AVAudioSession.sharedInstance().setActive(true)
+            audioSessionConfigured = true
         } catch {
-            print("Failed to setup audio session: \(error)")
+            // Leave audioSessionConfigured = false so the next sound attempt retries.
         }
     }
     
@@ -230,17 +240,15 @@ class AlertManager: ObservableObject {
     
     func triggerPhaseSound() {
         guard let soundURL = Bundle.main.url(forResource: settings.phaseAlerts.phaseSoundType.fileName, withExtension: nil) else {
-            print("Phase sound not found, falling back to haptic")
             triggerPhaseHaptic()
             return
         }
-        
+        ensureAudioSessionConfigured()
         do {
             audioPlayer = try AVAudioPlayer(contentsOf: soundURL)
             audioPlayer?.volume = settings.phaseAlerts.phaseVolume
             audioPlayer?.play()
         } catch {
-            print("Failed to play phase sound: \(error)")
             triggerPhaseHaptic()
         }
     }
@@ -252,19 +260,15 @@ class AlertManager: ObservableObject {
     
     func triggerSound() {
         guard let soundURL = Bundle.main.url(forResource: settings.soundType.fileName, withExtension: nil) else {
-            // Fallback to haptic if custom sound not found
-            print("Custom sound not found, falling back to haptic")
             triggerHaptic()
             return
         }
-        
+        ensureAudioSessionConfigured()
         do {
             audioPlayer = try AVAudioPlayer(contentsOf: soundURL)
             audioPlayer?.volume = settings.volume
             audioPlayer?.play()
         } catch {
-            print("Failed to play sound: \(error)")
-            // Fallback to haptic
             triggerHaptic()
         }
     }

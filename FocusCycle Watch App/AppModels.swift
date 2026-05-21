@@ -60,3 +60,46 @@ struct CustomIntervalSetting: Identifiable, Hashable, Equatable {
     var durationSeconds: Int = 60 // default 1 minute
     var haptic: AppHaptic = AppHaptic.default // Will use the default haptic which now has priority
 }
+
+enum LaunchPractice: String {
+    case yoga
+    case pranayama
+    case meditation
+
+    var displayName: String {
+        switch self {
+        case .yoga: return "Yoga"
+        case .pranayama: return "Pranayama"
+        case .meditation: return "Meditation"
+        }
+    }
+}
+
+enum LaunchStateStore {
+    private static let practiceKey = "FocusCycle_LastLaunchPractice"
+    private static let pranayamaKey = "FocusCycle_LastPranayamaType"
+
+    static func remember(_ practice: LaunchPractice) {
+        UserDefaults.standard.set(practice.rawValue, forKey: practiceKey)
+    }
+
+    static func lastPractice() -> LaunchPractice? {
+        guard let raw = UserDefaults.standard.string(forKey: practiceKey) else { return nil }
+        return LaunchPractice(rawValue: raw)
+    }
+
+    static func rememberPranayamaType(_ rawValue: String) {
+        UserDefaults.standard.set(rawValue, forKey: pranayamaKey)
+    }
+
+    static func lastPranayamaTypeRawValue() -> String? {
+        UserDefaults.standard.string(forKey: pranayamaKey)
+    }
+}
+
+@MainActor
+final class QuickStartCoordinator: ObservableObject {
+    static let shared = QuickStartCoordinator()
+    @Published var pendingPractice: LaunchPractice?
+    private init() {}
+}
