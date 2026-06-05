@@ -248,6 +248,13 @@ struct MeditationTimerView: View {
     @StateObject private var heart = HeartRateManager()
     private let healthCoordinator = SessionHealthCoordinator()
     @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dynamicTypeSize) private var dyn
+    @State private var dismissAfterSummary = false
+
+    private let minRecordableSeconds = 20
+
+    private var elapsedSeconds: Int { max(0, duration * 60 - remainingTime) }
+    private var hasProgress: Bool { isActive || elapsedSeconds > 0 }
 
     private func startExtendedSession() {
         RuntimeSessionManager.shared.start()
@@ -262,7 +269,45 @@ struct MeditationTimerView: View {
         HealthKitManager.shared.saveMindfulSession(start: start, end: Date())
         mindfulStartDate = nil
     }
-    
+
+    /// Ends the current (possibly partial) session, recording it when it ran
+    /// long enough. Returns elapsed seconds for an optional summary.
+    @discardableResult
+    private func endCurrentSession() -> Int {
+        let elapsed = elapsedSeconds
+        isActive = false
+        sessionStartDate = nil
+        saveMindfulSessionIfNeeded()
+        stopExtendedSession()
+        if elapsed >= minRecordableSeconds {
+            heart.stop { aggregate in
+                healthCoordinator.finalize(aggregate: aggregate) { metrics in
+                    StreakManager.shared.recordSession(.meditation, duration: elapsed, metrics: metrics)
+                }
+            }
+        } else {
+            heart.stop()
+        }
+        remainingTime = duration * 60
+        return elapsed
+    }
+
+    /// Close (X) button: stop the session, save any progress, reset, and dismiss.
+    /// No confirmation dialog — it conflicts with the other presentation modifiers
+    /// inside a watchOS sheet and would silently fail to appear.
+    private func closeSession() {
+        if hasProgress {
+            endCurrentSession()
+        } else {
+            isActive = false
+            sessionStartDate = nil
+            saveMindfulSessionIfNeeded()
+            stopExtendedSession()
+            heart.stop()
+        }
+        presentationMode.wrappedValue.dismiss()
+    }
+
     init(duration: Int) {
         self.duration = duration
         self._remainingTime = State(initialValue: duration * 60)
@@ -274,17 +319,20 @@ struct MeditationTimerView: View {
                 DesignSystem.Colors.backgroundGradient
                     .ignoresSafeArea()
                 
-                let M = WatchMetrics.current(dynamicType: .medium)
-                
-                VStack(spacing: 10) {
+                let M = WatchMetrics.current(dynamicType: dyn)
+
+                GeometryReader { geo in
+                  let controlSize = min(58, max(44, M.buttonSize))
+                  let available = geo.size.height
+                  // Ring takes the space left after header + controls. No
+                  // ScrollView, so taps on the controls aren't swallowed by a
+                  // scroll/swipe gesture.
+                  let reserved: CGFloat = controlSize + 78
+                  let ringSize = max(64, min(available - reserved, M.ringDiameter * 0.9))
+                  VStack(spacing: 10) {
                     HStack(alignment: .center) {
                         Button(action: {
-                            isActive = false
-                            sessionStartDate = nil
-                            saveMindfulSessionIfNeeded()
-                            stopExtendedSession()
-                            heart.stop()
-                            presentationMode.wrappedValue.dismiss()
+                            closeSession()
                         }) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 12, weight: .semibold))
@@ -338,7 +386,7 @@ struct MeditationTimerView: View {
                         // Background circle
                         Circle()
                             .stroke(Color.white.opacity(0.1), lineWidth: 4)
-                            .frame(width: M.ringDiameter * 0.8, height: M.ringDiameter * 0.8)
+                            .frame(width: ringSize, height: ringSize)
                         
                         // Progress circle
                         Circle()
@@ -348,7 +396,7 @@ struct MeditationTimerView: View {
                                 style: StrokeStyle(lineWidth: 4, lineCap: .round)
                             )
                             .rotationEffect(.degrees(-90))
-                            .frame(width: M.ringDiameter * 0.8, height: M.ringDiameter * 0.8)
+                            .frame(width: ringSize, height: ringSize)
                             .animation(DesignSystem.Animation.progressTransition, value: progress)
                         
                         // Time display
@@ -367,7 +415,7 @@ struct MeditationTimerView: View {
                     .padding(.horizontal, M.hPad)
                     
                     // Control buttons
-                    HStack(spacing: 16) {
+                    HStack(spacing: M.buttonSpacing) {
                         Button(action: {
                             if isActive {
                                 isActive = false
@@ -402,7 +450,7 @@ struct MeditationTimerView: View {
                                     .font(.system(size: 9, weight: .semibold, design: .rounded))
                                     .foregroundColor(.white)
                             }
-                            .frame(width: 60, height: 60)
+                            .frame(width: controlSize, height: controlSize)
                             .background(
                                 Circle()
                                     .fill(isActive ? DesignSystem.Colors.pauseOrange : DesignSystem.Colors.playGreen)
@@ -417,12 +465,12 @@ struct MeditationTimerView: View {
                         .accessibilityIdentifier("meditation-start-pause")
                         
                         Button(action: {
-                            remainingTime = duration * 60
-                            isActive = false
-                            sessionStartDate = nil
-                            saveMindfulSessionIfNeeded()
-                            stopExtendedSession()
-                            heart.stop()
+                            let elapsed = endCurrentSession()
+                            if elapsed >= minRecordableSeconds {
+                                completionSummary = "\(formatTime(elapsed)) meditation recorded"
+                                dismissAfterSummary = false
+                                showingCompletionSummary = true
+                            }
                         }) {
                             VStack(spacing: 3) {
                                 Image(systemName: "stop.fill")
@@ -433,10 +481,11 @@ struct MeditationTimerView: View {
                                     .font(.system(size: 9, weight: .semibold, design: .rounded))
                                     .foregroundColor(.white)
                             }
-                            .frame(width: 60, height: 60)
+                            .frame(width: controlSize, height: controlSize)
                             .background(
                                 Circle()
                                     .fill(DesignSystem.Colors.stopRed)
+                                    .opacity(hasProgress ? 1 : 0.4)
                                     .overlay(
                                         Circle()
                                             .stroke(Color.white.opacity(0.3), lineWidth: 2)
@@ -444,6 +493,7 @@ struct MeditationTimerView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .disabled(!hasProgress)
                         .accessibilityIdentifier("meditation-stop")
                     }
                     .padding(.horizontal, M.hPad)
@@ -458,10 +508,11 @@ struct MeditationTimerView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
-                    
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    Spacer(minLength: 0)
+                    }
+                    .frame(width: geo.size.width, height: available, alignment: .top)
+                  }
             }
             .navigationBarHidden(true)
         }
@@ -486,6 +537,7 @@ struct MeditationTimerView: View {
                     }
                 }
                 completionSummary = "\(duration)m meditation completed"
+                dismissAfterSummary = true
                 showingCompletionSummary = true
             }
         }
@@ -510,7 +562,12 @@ struct MeditationTimerView: View {
             }
         }
         .alert("Session Complete", isPresented: $showingCompletionSummary) {
-            Button("Done", role: .cancel) { }
+            Button("Done", role: .cancel) {
+                if dismissAfterSummary {
+                    dismissAfterSummary = false
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
         } message: {
             Text(completionSummary)
         }

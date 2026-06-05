@@ -32,17 +32,28 @@ struct LandingView: View {
     @State private var selectedPage: LaunchPractice = .yoga
     @State private var presentation: LandingPresentation?
 
+    // @AppStorage so the buttons re-render the moment a customize sheet (or a
+    // WatchConnectivity command) writes a new value. Plain UserDefaults reads
+    // are not observable by SwiftUI.
+    @AppStorage("userAsanaCount") private var yogaAsanas: Int = 0
+    @AppStorage("userHoldSeconds") private var yogaHold: Int = 0
+    @AppStorage("userRestSeconds") private var yogaRest: Int = 0
+    @AppStorage("meditationCustomDurationMinutes") private var meditationStored: Int = 0
+    @AppStorage("FocusCycle_LastPranayamaType") private var lastPranayamaRaw: String = ""
+
     private var meditationDurationMinutes: Int {
-        let stored = UserDefaults.standard.integer(forKey: "meditationCustomDurationMinutes")
-        return stored > 0 ? stored : 12
+        meditationStored > 0 ? meditationStored : 12
     }
 
     private var lastPranayamaType: PranayamaType {
-        if let raw = LaunchStateStore.lastPranayamaTypeRawValue(),
-           let type = PranayamaType(rawValue: raw) {
-            return type
-        }
-        return .anulom
+        PranayamaType(rawValue: lastPranayamaRaw) ?? .anulom
+    }
+
+    /// Compact summary of the current yoga preset, e.g. "10 × 60–20s".
+    /// Falls back to nil if the user hasn't configured one yet.
+    private var yogaPresetDetail: String? {
+        guard yogaAsanas > 0, yogaHold > 0 else { return nil }
+        return "\(yogaAsanas) × \(yogaHold)–\(yogaRest)s"
     }
 
     var body: some View {
@@ -56,6 +67,7 @@ struct LandingView: View {
                     icon: "figure.yoga",
                     accentColor: DesignSystem.Colors.focusBlue,
                     streak: streakManager.getCurrentStreak(for: .yoga),
+                    startDetail: yogaPresetDetail,
                     onStart: { presentation = .startYoga },
                     onCustomize: { presentation = .customizeYoga }
                 )
@@ -66,6 +78,7 @@ struct LandingView: View {
                     icon: "wind",
                     accentColor: DesignSystem.Colors.playGreen,
                     streak: streakManager.getCurrentStreak(for: .pranayama),
+                    startDetail: lastPranayamaType.displayName,
                     onStart: { presentation = .startPranayama(lastPranayamaType) },
                     onCustomize: { presentation = .customizePranayama }
                 )
@@ -76,6 +89,7 @@ struct LandingView: View {
                     icon: "brain.head.profile",
                     accentColor: DesignSystem.Colors.focusPurple,
                     streak: streakManager.getCurrentStreak(for: .meditation),
+                    startDetail: "\(meditationDurationMinutes) min",
                     onStart: { presentation = .startMeditation(meditationDurationMinutes) },
                     onCustomize: { presentation = .customizeMeditation }
                 )
@@ -138,82 +152,116 @@ struct PracticePage: View {
     let icon: String
     let accentColor: Color
     let streak: Int
+    /// Short summary of the currently-selected preset (e.g. "Anulom" for
+    /// pranayama, "10 × 60–20" for yoga). Rendered under "Start" inside the
+    /// primary button. Pass nil to hide.
+    var startDetail: String? = nil
     let onStart: () -> Void
     let onCustomize: () -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
-            Spacer(minLength: 0)
+        GeometryReader { geo in
+            // Reserve guaranteed space for the title block, optional preset
+            // capsule, and the action buttons. The hero icon then takes only
+            // whatever vertical space is left so the Start/Customize row is
+            // always fully on-screen, even on the smallest watch.
+            let reserved: CGFloat = 40 + (startDetail != nil ? 32 : 0) + 52 + 26
+            let iconD = min(86, max(0, geo.size.height - reserved))
 
-            ZStack {
-                Circle()
-                    .fill(accentColor.opacity(0.18))
-                    .frame(width: 88, height: 88)
-                Image(systemName: icon)
-                    .font(.system(size: 38, weight: .medium))
-                    .foregroundColor(.white)
-            }
+            VStack(spacing: 8) {
+                Spacer(minLength: 0)
 
-            VStack(spacing: 4) {
-                Text(title)
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
-
-                if streak > 0 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 11))
-                            .foregroundColor(DesignSystem.Colors.pauseOrange)
-                        Text("\(streak) day\(streak == 1 ? "" : "s")")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.white.opacity(0.75))
+                if iconD >= 40 {
+                    ZStack {
+                        Circle()
+                            .fill(accentColor.opacity(0.18))
+                            .frame(width: iconD, height: iconD)
+                        Image(systemName: icon)
+                            .font(.system(size: iconD * 0.43, weight: .medium))
+                            .foregroundColor(.white)
                     }
-                } else {
-                    Text("Tap start when ready")
-                        .font(.system(size: 11, weight: .regular))
-                        .foregroundColor(.white.opacity(0.55))
                 }
-            }
 
-            Spacer(minLength: 0)
+                VStack(spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 21, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
 
-            HStack(spacing: 8) {
-                Button(action: onStart) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "play.fill")
-                        Text("Start")
+                    if streak > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                                .font(.system(size: 11))
+                                .foregroundColor(DesignSystem.Colors.pauseOrange)
+                            Text("\(streak) day\(streak == 1 ? "" : "s")")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.75))
+                        }
+                    } else {
+                        Text("Tap start when ready")
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundColor(.white.opacity(0.55))
                     }
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(accentColor)
-                    )
                 }
-                .buttonStyle(PlainButtonStyle())
-                .accessibilityIdentifier("\(title.lowercased())-quick-start")
-                .accessibilityLabel("Start \(title)")
 
-                Button(action: onCustomize) {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.85))
-                        .frame(width: 44, height: 44)
+                Spacer(minLength: 0)
+
+                if let detail = startDetail {
+                    Text(detail)
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(accentColor.opacity(0.28))
+                        )
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(accentColor.opacity(0.55), lineWidth: 1)
+                        )
+                        .accessibilityLabel("Selected: \(detail)")
+                }
+
+                HStack(spacing: 8) {
+                    Button(action: onStart) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "play.fill")
+                            Text("Start")
+                        }
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
                         .background(
                             RoundedRectangle(cornerRadius: 14)
-                                .fill(DesignSystem.Colors.cardBackgroundHighlight)
+                                .fill(accentColor)
                         )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .accessibilityIdentifier("\(title.lowercased())-quick-start")
+                    .accessibilityLabel(startDetail.map { "Start \(title), \($0)" } ?? "Start \(title)")
+
+                    Button(action: onCustomize) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.85))
+                            .frame(width: 44, height: 44)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(DesignSystem.Colors.cardBackgroundHighlight)
+                            )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .accessibilityIdentifier("\(title.lowercased())-customize")
+                    .accessibilityLabel("Customize \(title)")
                 }
-                .buttonStyle(PlainButtonStyle())
-                .accessibilityIdentifier("\(title.lowercased())-customize")
-                .accessibilityLabel("Customize \(title)")
+                .padding(.bottom, 6)
             }
-            .padding(.bottom, 18)
+            .padding(.horizontal, 14)
+            .frame(width: geo.size.width, height: geo.size.height)
         }
-        .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

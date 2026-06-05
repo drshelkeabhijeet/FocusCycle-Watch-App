@@ -15,7 +15,6 @@ struct SettingsView: View {
     @Binding var multipleIntervalsSequenceDurationMinutes: Int
 
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var heart: HeartRateManager
 
     // Yoga presets for Multiple Intervals mode
     struct YogaPreset: Identifiable {
@@ -37,8 +36,6 @@ struct SettingsView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: DesignSystem.Spacing.sm) {
-                    heartRateButtonSection
-
                     sectionLabel("Quick Presets")
                     presetsButtonSection
 
@@ -81,18 +78,6 @@ struct SettingsView: View {
             .foregroundColor(DesignSystem.Colors.textSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, DesignSystem.Spacing.xs)
-    }
-
-    private var heartRateButtonSection: some View {
-        NavigationLink(destination: HeartRateHistoryView()) {
-            navRow(
-                icon: "heart.fill",
-                iconColor: .red,
-                title: "Heart Rate",
-                subtitle: "Past 5 sessions"
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
     }
 
     private var aboutButtonSection: some View {

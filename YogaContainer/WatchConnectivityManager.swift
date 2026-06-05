@@ -207,6 +207,10 @@ extension WatchConnectivityManager: WCSessionDelegate {
         Task { @MainActor in
             self.activationDescription = "\(activationState.rawValue)"
             self.refreshPairingState(session)
+            // Ingest any snapshot the watch pushed while this app was inactive.
+            if !session.receivedApplicationContext.isEmpty {
+                self.handleIncomingDictionary(session.receivedApplicationContext)
+            }
             self.flushPendingCommands()
             self.requestLatestState()
         }

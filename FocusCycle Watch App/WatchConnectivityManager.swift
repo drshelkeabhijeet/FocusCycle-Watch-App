@@ -25,6 +25,13 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
     private var snapshotPushWorkItem: DispatchWorkItem?
     private let snapshotPushDelay: TimeInterval = 0.25
 
+    // iOS fires `requestState` on every launch, foreground, and pull-to-refresh.
+    // Re-sending the full 90-day session history each time floods the
+    // `transferUserInfo` queue, so throttle the heavy resend. The snapshot is
+    // still pushed every time (it's a single, cheap applicationContext update).
+    private var lastFullEventResend: Date?
+    private let fullEventResendMinInterval: TimeInterval = 60
+
     private override init() {
         super.init()
         seenIDs = UserDefaults.standard.stringArray(forKey: seenIDsKey) ?? []
@@ -81,11 +88,47 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
             hrvPreSdnnMs: record.hrvPreSdnnMs,
             hrvPostSdnnMs: record.hrvPostSdnnMs,
             spo2PrePercent: record.spo2PrePercent,
-            spo2PostPercent: record.spo2PostPercent
+            spo2PostPercent: record.spo2PostPercent,
+            hrSamples: record.hrSamples?.map { CompanionHRSample(t: $0.t, bpm: $0.bpm) }
         )
         let envelope = CompanionEnvelope.sessionEvent(event)
         guard let payload = envelope.toDictionary() else { return }
         session.transferUserInfo(payload)
+    }
+
+    /// Re-sends all stored session records to the companion iOS app.
+    /// Called when iOS explicitly requests a full state sync. Uses the existing
+    /// per-event `transferUserInfo` path so iOS can deduplicate by event ID.
+    /// Limits to the last 90 days to avoid flooding the transfer queue.
+    private func pushStoredSessionEvents() {
+        guard let session else { return }
+        let cutoff = Calendar.current.date(byAdding: .day, value: -90, to: Date()) ?? .distantPast
+        var allRecords: [SessionRecord] = []
+        for activityType in ActivityType.allCases {
+            let records = StreakManager.shared.getStreakData(for: activityType).sessions
+            allRecords.append(contentsOf: records.filter { $0.date >= cutoff })
+        }
+        // Sort oldest-first so the iOS store receives them in chronological order.
+        let sorted = allRecords.sorted { $0.date < $1.date }
+        for record in sorted {
+            let event = CompanionSessionEvent(
+                id: record.id.uuidString,
+                activityTypeRawValue: record.activityType.rawValue,
+                durationSeconds: record.duration,
+                date: record.date,
+                pattern: record.pattern,
+                avgHeartRate: record.avgHeartRate,
+                avgRespiratoryRate: record.avgRespiratoryRate,
+                activeEnergyKcal: record.activeEnergyKcal,
+                hrvPreSdnnMs: record.hrvPreSdnnMs,
+                hrvPostSdnnMs: record.hrvPostSdnnMs,
+                spo2PrePercent: record.spo2PrePercent,
+                spo2PostPercent: record.spo2PostPercent,
+                hrSamples: record.hrSamples?.map { CompanionHRSample(t: $0.t, bpm: $0.bpm) }
+            )
+            guard let payload = CompanionEnvelope.sessionEvent(event).toDictionary() else { continue }
+            session.transferUserInfo(payload)
+        }
     }
 
     private func makeSnapshot() -> CompanionStateSnapshot {
@@ -139,6 +182,14 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
 
         switch command.type {
         case "requestState":
+            let now = Date()
+            if let last = lastFullEventResend, now.timeIntervalSince(last) < fullEventResendMinInterval {
+                // Skip the heavy full-history resend; the snapshot push below
+                // (triggered by the `true` return) is enough to refresh iOS.
+            } else {
+                lastFullEventResend = now
+                pushStoredSessionEvents()
+            }
             return true // caller will push snapshot
 
         case "quickStart":
@@ -242,6 +293,16 @@ extension WatchConnectivityManager: WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
+        DispatchQueue.main.async {
+            self.handleIncomingDictionary(message)
+        }
+    }
+
+    // iOS sends commands via sendMessage WITH a replyHandler. Without this
+    // delegate method the message is never delivered to the watch. We handle
+    // the command then immediately acknowledge so iOS doesn't time out.
+    func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
+        replyHandler([:])
         DispatchQueue.main.async {
             self.handleIncomingDictionary(message)
         }

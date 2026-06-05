@@ -121,13 +121,29 @@ private struct CompanionDashboardView: View {
         }
     }
 
+    // WCSession.isReachable is only true while the watch app is in the
+    // foreground, so it is a poor proxy for "are we synced". Sync still works in
+    // the background via applicationContext/userInfo whenever the watch is
+    // paired and the app is installed — reflect that instead of flashing
+    // "offline" during normal use.
+    private var connectionColor: Color {
+        guard wc.isPaired, wc.isWatchAppInstalled else { return .orange }
+        return wc.isReachable ? .green : .blue
+    }
+
+    private var connectionTitle: String {
+        if !wc.isPaired { return "No watch paired" }
+        if !wc.isWatchAppInstalled { return "Watch app not installed" }
+        return wc.isReachable ? "Watch active" : "Watch connected"
+    }
+
     private var statusCard: some View {
         HStack(spacing: 10) {
             Circle()
-                .fill(wc.isReachable ? Color.green : Color.orange)
+                .fill(connectionColor)
                 .frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 2) {
-                Text(wc.isReachable ? "Watch reachable" : "Watch offline")
+                Text(connectionTitle)
                     .font(.subheadline.weight(.medium))
                 if let generatedAt = store.snapshot?.generatedAt {
                     Text("Last sync \(generatedAt.formatted(.relative(presentation: .named)))")
@@ -155,12 +171,18 @@ private struct CompanionDashboardView: View {
 
     private var streakCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Streaks")
-                .font(.headline)
             HStack {
-                metric("Yoga", value("yoga", \.currentStreak))
-                metric("Pranayama", value("pranayama", \.currentStreak))
-                metric("Meditation", value("meditation", \.currentStreak))
+                Text("Streaks")
+                    .font(.headline)
+                Spacer()
+                Text("current · best")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            HStack(alignment: .top) {
+                metric("Yoga", current: value("yoga", \.currentStreak), best: value("yoga", \.longestStreak))
+                metric("Pranayama", current: value("pranayama", \.currentStreak), best: value("pranayama", \.longestStreak))
+                metric("Meditation", current: value("meditation", \.currentStreak), best: value("meditation", \.longestStreak))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -168,13 +190,21 @@ private struct CompanionDashboardView: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
 
-    private func metric(_ title: String, _ value: Int) -> some View {
-        VStack {
-            Text("\(value)")
-                .font(.title2.weight(.semibold))
+    private func metric(_ title: String, current: Int, best: Int) -> some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 3) {
+                Image(systemName: "flame.fill")
+                    .font(.caption2)
+                    .foregroundStyle(current > 0 ? Color.orange : Color.secondary)
+                Text("\(current)")
+                    .font(.title2.weight(.semibold))
+            }
             Text(title)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            Text("best \(best)")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -459,6 +489,7 @@ private struct CompanionHistoryView: View {
     @EnvironmentObject private var wc: WatchConnectivityManager
     @State private var selectedActivity = "all"
     @State private var showingClearConfirm = false
+    @State private var selectedEvent: CompanionSessionEvent?
 
     var body: some View {
         NavigationStack {
@@ -477,12 +508,18 @@ private struct CompanionHistoryView: View {
                                   : "No \(selectedActivity) sessions match this filter.")
                 } else {
                     ForEach(filteredEvents) { event in
-                        SessionRow(event: event, durationText: formattedDuration(event.durationSeconds))
+                        Button { selectedEvent = event } label: {
+                            SessionRow(event: event, durationText: formattedDuration(event.durationSeconds))
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
             .navigationTitle("History")
             .refreshable { wc.requestLatestState() }
+            .sheet(item: $selectedEvent) { event in
+                SessionDetailSheet(event: event, durationText: formattedDuration(event.durationSeconds))
+            }
             .toolbar {
                 if !store.sessionEvents.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -520,6 +557,143 @@ private struct CompanionHistoryView: View {
         let s = seconds % 60
         if h > 0 { return m > 0 ? "\(h)h \(m)m" : "\(h)h" }
         if m > 0 { return s > 0 ? "\(m)m \(s)s" : "\(m)m" }
+        return "\(s)s"
+    }
+}
+
+// MARK: - Session Detail
+
+private struct SessionDetailSheet: View {
+    let event: CompanionSessionEvent
+    let durationText: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    headerCard
+                    if let samples = event.hrSamples, samples.count > 1 {
+                        HRChartCard(samples: samples)
+                    } else if event.avgHeartRate != nil {
+                        BannerView(
+                            icon: "waveform.path.ecg",
+                            tint: .pink,
+                            title: "HR trace unavailable",
+                            subtitle: "This session was recorded before per-session HR streaming was enabled. Future sessions will show a chart."
+                        )
+                    }
+                    metricsGrid
+                }
+                .padding()
+            }
+            .navigationTitle(event.activityTypeRawValue.capitalized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private var headerCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(event.date.formatted(date: .long, time: .shortened))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Text(durationText)
+                .font(.largeTitle.weight(.semibold))
+            if let pattern = event.pattern {
+                Text(pattern.replacingOccurrences(of: "_", with: " ").capitalized)
+                    .font(.footnote)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.thinMaterial, in: Capsule())
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private var metricsGrid: some View {
+        let items = SessionRow.metricItems(for: event)
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Metrics").font(.headline)
+                FlowMetrics(items: items)
+            }
+        }
+    }
+}
+
+private struct HRChartCard: View {
+    let samples: [CompanionHRSample]
+
+    private struct Point: Identifiable {
+        let id = UUID()
+        let t: Int
+        let bpm: Int
+    }
+
+    private var points: [Point] {
+        samples.map { Point(t: $0.t, bpm: $0.bpm) }
+    }
+
+    private var minBpm: Int { samples.map(\.bpm).min() ?? 0 }
+    private var maxBpm: Int { samples.map(\.bpm).max() ?? 0 }
+    private var avgBpm: Int {
+        let total = samples.map(\.bpm).reduce(0, +)
+        return samples.isEmpty ? 0 : total / samples.count
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Heart Rate", systemImage: "heart.fill")
+                    .foregroundStyle(.pink)
+                    .font(.headline)
+                Spacer()
+                Text("avg \(avgBpm) · min \(minBpm) · max \(maxBpm)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Chart(points) { p in
+                LineMark(
+                    x: .value("Time", p.t),
+                    y: .value("BPM", p.bpm)
+                )
+                .foregroundStyle(.pink)
+                .interpolationMethod(.monotone)
+                AreaMark(
+                    x: .value("Time", p.t),
+                    y: .value("BPM", p.bpm)
+                )
+                .foregroundStyle(.linearGradient(colors: [.pink.opacity(0.25), .clear], startPoint: .top, endPoint: .bottom))
+                .interpolationMethod(.monotone)
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let s = value.as(Int.self) {
+                            Text(formatElapsed(s))
+                        }
+                    }
+                }
+            }
+            .frame(height: 200)
+        }
+        .padding()
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func formatElapsed(_ seconds: Int) -> String {
+        let m = seconds / 60
+        let s = seconds % 60
+        if m > 0 { return s > 0 ? "\(m)m\(s)s" : "\(m)m" }
         return "\(s)s"
     }
 }
@@ -577,6 +751,44 @@ private struct CompanionInsightsView: View {
                         .frame(height: 220)
                         .padding(12)
                         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+
+                    Text("Trends").font(.headline)
+                    TrendChartCard(
+                        title: "Avg Heart Rate",
+                        unit: "bpm",
+                        icon: "heart.fill",
+                        tint: .pink,
+                        points: trendSeries { $0.avgHeartRate }
+                    )
+                    TrendChartCard(
+                        title: "Heart Rate Variability (post)",
+                        unit: "ms",
+                        icon: "waveform.path.ecg",
+                        tint: .purple,
+                        points: trendSeries { $0.hrvPostSdnnMs }
+                    )
+                    TrendChartCard(
+                        title: "Blood Oxygen (post)",
+                        unit: "%",
+                        icon: "drop.fill",
+                        tint: .blue,
+                        points: trendSeries { event in event.spo2PostPercent.map { $0 * 100 } }
+                    )
+                    TrendChartCard(
+                        title: "Respiratory Rate",
+                        unit: "br/min",
+                        icon: "wind",
+                        tint: .mint,
+                        points: trendSeries { $0.avgRespiratoryRate }
+                    )
+                    TrendChartCard(
+                        title: "Active Energy",
+                        unit: "kcal",
+                        icon: "flame.fill",
+                        tint: .orange,
+                        points: trendSeries { $0.activeEnergyKcal },
+                        aggregation: .sum
+                    )
                 }
                 .padding()
             }
@@ -642,6 +854,114 @@ private struct CompanionInsightsView: View {
         let h = Int(value)
         let m = Int((value - Double(h)) * 60)
         return m > 0 ? "\(h)h \(m)m" : "\(h)h"
+    }
+
+    /// Buckets per-session metric values to one point per calendar day across
+    /// the last 30 days. Missing days are omitted (chart breaks naturally).
+    private func trendSeries(_ extract: (CompanionSessionEvent) -> Double?) -> [TrendChartCard.Point] {
+        let cal = Calendar.current
+        let endDay = cal.startOfDay(for: Date())
+        guard let startDay = cal.date(byAdding: .day, value: -29, to: endDay) else { return [] }
+        var bucket: [Date: (sum: Double, count: Int)] = [:]
+        for event in store.sessionEvents {
+            guard let value = extract(event) else { continue }
+            let day = cal.startOfDay(for: event.date)
+            guard day >= startDay && day <= endDay else { continue }
+            let existing = bucket[day] ?? (0, 0)
+            bucket[day] = (existing.sum + value, existing.count + 1)
+        }
+        return bucket.keys.sorted().map { day in
+            let b = bucket[day]!
+            return TrendChartCard.Point(day: day, sum: b.sum, count: b.count)
+        }
+    }
+}
+
+private struct TrendChartCard: View {
+    enum Aggregation { case average, sum }
+
+    let title: String
+    let unit: String
+    let icon: String
+    let tint: Color
+    let points: [Point]
+    var aggregation: Aggregation = .average
+
+    struct Point: Identifiable {
+        let id = UUID()
+        let day: Date
+        let sum: Double
+        let count: Int
+        var value: Double { count > 0 ? sum / Double(count) : 0 }
+    }
+
+    private var displayPoints: [(day: Date, value: Double)] {
+        points.map { p in
+            (day: p.day, value: aggregation == .sum ? p.sum : p.value)
+        }
+    }
+
+    private var summary: String? {
+        guard !points.isEmpty else { return nil }
+        let values = displayPoints.map(\.value)
+        let avg = values.reduce(0, +) / Double(values.count)
+        switch aggregation {
+        case .average: return String(format: "30-day avg: %.0f %@", avg, unit)
+        case .sum: return String(format: "30-day total: %.0f %@", values.reduce(0, +), unit)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(title, systemImage: icon)
+                    .foregroundStyle(tint)
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                if let summary {
+                    Text(summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if points.isEmpty {
+                Text("Not enough data yet.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Chart(displayPoints, id: \.day) { item in
+                    if aggregation == .sum {
+                        BarMark(
+                            x: .value("Day", item.day, unit: .day),
+                            y: .value(unit, item.value)
+                        )
+                        .foregroundStyle(tint)
+                    } else {
+                        LineMark(
+                            x: .value("Day", item.day, unit: .day),
+                            y: .value(unit, item.value)
+                        )
+                        .foregroundStyle(tint)
+                        .interpolationMethod(.monotone)
+                        PointMark(
+                            x: .value("Day", item.day, unit: .day),
+                            y: .value(unit, item.value)
+                        )
+                        .foregroundStyle(tint)
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .day, count: 7)) { value in
+                        AxisGridLine()
+                        AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                    }
+                }
+                .frame(height: 140)
+            }
+        }
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -732,23 +1052,28 @@ private struct SessionRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            if hasMetrics {
-                FlowMetrics(items: metricItems)
+            let items = Self.metricItems(for: event)
+            if !items.isEmpty {
+                FlowMetrics(items: items)
                     .padding(.top, 2)
+            }
+            if let count = event.hrSamples?.count, count > 1 {
+                HStack(spacing: 4) {
+                    Image(systemName: "waveform.path.ecg.rectangle")
+                        .foregroundStyle(.pink)
+                    Text("Tap for HR chart")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .font(.caption2)
+                .padding(.top, 2)
             }
         }
         .padding(.vertical, 2)
+        .contentShape(Rectangle())
     }
 
-    private var hasMetrics: Bool {
-        event.avgHeartRate != nil
-            || event.avgRespiratoryRate != nil
-            || event.activeEnergyKcal != nil
-            || event.hrvPostSdnnMs != nil
-            || event.spo2PostPercent != nil
-    }
-
-    private var metricItems: [FlowMetrics.Item] {
+    static func metricItems(for event: CompanionSessionEvent) -> [FlowMetrics.Item] {
         var items: [FlowMetrics.Item] = []
         if let hr = event.avgHeartRate {
             items.append(.init(icon: "heart.fill", tint: .pink, text: String(format: "%.0f bpm", hr)))
@@ -889,4 +1214,5 @@ private struct EmptyStateRow: View {
     ContentView()
         .environmentObject(CompanionStore.shared)
         .environmentObject(WatchConnectivityManager.shared)
+        .environmentObject(CompanionHealthReader.shared)
 }

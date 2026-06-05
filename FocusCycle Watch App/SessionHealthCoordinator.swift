@@ -41,7 +41,8 @@ final class SessionHealthCoordinator {
             hrvPreSdnnMs: preHRV,
             hrvPostSdnnMs: nil,
             spo2PrePercent: preSpO2,
-            spo2PostPercent: nil
+            spo2PostPercent: nil,
+            hrSamples: aggregate.hrSamples.isEmpty ? nil : aggregate.hrSamples
         )
 
         let group = DispatchGroup()

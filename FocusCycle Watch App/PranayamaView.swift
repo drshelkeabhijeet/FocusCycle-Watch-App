@@ -19,8 +19,14 @@ struct PranayamaView: View {
                         ForEach(settingsManager.allPatterns, id: \.type) { pattern in
                             PatternRow(
                                 pattern: pattern,
-                                onStart: { selectedPatternForTimer = pattern.type },
-                                onCustomize: { selectedPatternForSettings = pattern.type }
+                                onStart: {
+                                    LaunchStateStore.rememberPranayamaType(pattern.type.rawValue)
+                                    selectedPatternForTimer = pattern.type
+                                },
+                                onCustomize: {
+                                    LaunchStateStore.rememberPranayamaType(pattern.type.rawValue)
+                                    selectedPatternForSettings = pattern.type
+                                }
                             )
                         }
                     }

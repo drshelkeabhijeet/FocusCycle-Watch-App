@@ -12,6 +12,7 @@ struct YogaContainerApp: App {
     @StateObject private var store = CompanionStore.shared
     @StateObject private var wc = WatchConnectivityManager.shared
     @StateObject private var health = CompanionHealthReader.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -24,6 +25,11 @@ struct YogaContainerApp: App {
                     await health.requestAuthorization()
                     await health.refresh()
                 }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                wc.requestLatestState()
+            }
         }
     }
 }

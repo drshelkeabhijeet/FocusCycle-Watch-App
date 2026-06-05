@@ -38,6 +38,8 @@ struct SessionRecord: Codable, Identifiable {
     var hrvPostSdnnMs: Double?
     var spo2PrePercent: Double?
     var spo2PostPercent: Double?
+    /// Downsampled HR timeseries (typically 1/5s) captured during the session.
+    var hrSamples: [HRSamplePoint]?
 
     init(activityType: ActivityType,
          duration: Int,
@@ -55,7 +57,13 @@ struct SessionRecord: Codable, Identifiable {
         self.hrvPostSdnnMs = metrics?.hrvPostSdnnMs
         self.spo2PrePercent = metrics?.spo2PrePercent
         self.spo2PostPercent = metrics?.spo2PostPercent
+        self.hrSamples = metrics?.hrSamples
     }
+}
+
+struct HRSamplePoint: Codable, Equatable {
+    let t: Int
+    let bpm: Int
 }
 
 /// Plain bag of optional values collected during a practice.
@@ -67,6 +75,7 @@ struct SessionHealthMetrics {
     var hrvPostSdnnMs: Double?
     var spo2PrePercent: Double?
     var spo2PostPercent: Double?
+    var hrSamples: [HRSamplePoint]?
 }
 
 // MARK: - Streak Data

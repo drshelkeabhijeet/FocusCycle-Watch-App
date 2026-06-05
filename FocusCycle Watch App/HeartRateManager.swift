@@ -18,6 +18,8 @@ final class HeartRateManager: NSObject, ObservableObject {
         var avgHeartRate: Double?
         var avgRespiratoryRate: Double?
         var activeEnergyKcal: Double?
+        /// Downsampled HR series captured during the session, suitable for charting.
+        var hrSamples: [HRSamplePoint] = []
     }
     @Published private(set) var lastAggregate: Aggregate = Aggregate()
 
@@ -58,9 +60,11 @@ final class HeartRateManager: NSObject, ObservableObject {
             return
         }
         session.end()
+        let downsampled = downsampleHRSamples()
         builder.endCollection(withEnd: endDate) { [weak self] _, _ in
             guard let self else { completion?(Aggregate()); return }
-            let aggregate = self.collectAggregate(from: builder)
+            var aggregate = self.collectAggregate(from: builder)
+            aggregate.hrSamples = downsampled
             builder.finishWorkout { _, _ in }
             DispatchQueue.main.async {
                 self.lastAggregate = aggregate
@@ -71,6 +75,29 @@ final class HeartRateManager: NSObject, ObservableObject {
                 completion?(aggregate)
             }
         }
+    }
+
+    /// Downsamples in-memory samples to ~1 reading per 5 seconds, capped at 720 points
+    /// (covers up to a 60-minute session) so the payload stays small enough for
+    /// `transferUserInfo`.
+    private func downsampleHRSamples() -> [HRSamplePoint] {
+        guard let start = sessionStart, !samples.isEmpty else { return [] }
+        let bucket: TimeInterval = 5
+        var byBucket: [Int: (sum: Int, count: Int)] = [:]
+        for s in samples {
+            let t = max(0, Int(s.date.timeIntervalSince(start) / bucket))
+            byBucket[t, default: (0, 0)] = (byBucket[t]!.sum + s.bpm, byBucket[t]!.count + 1)
+        }
+        let ordered = byBucket.keys.sorted()
+        var out: [HRSamplePoint] = []
+        out.reserveCapacity(ordered.count)
+        for k in ordered {
+            let agg = byBucket[k]!
+            let avg = agg.sum / max(1, agg.count)
+            out.append(HRSamplePoint(t: k * Int(bucket), bpm: avg))
+        }
+        if out.count > 720 { out = Array(out.suffix(720)) }
+        return out
     }
 
     private func collectAggregate(from builder: HKLiveWorkoutBuilder) -> Aggregate {

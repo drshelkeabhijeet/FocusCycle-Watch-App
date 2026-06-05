@@ -13,7 +13,15 @@ struct PranayamaTimerView: View {
     @StateObject private var heart = HeartRateManager()
     private let healthCoordinator = SessionHealthCoordinator()
     @Environment(\.presentationMode) var presentationMode
-    
+    @Environment(\.dynamicTypeSize) private var dyn
+    @State private var dismissAfterSummary = false
+
+    /// Minimum elapsed time before a partial (manually-ended) session is worth
+    /// saving to history, so accidental taps don't pollute the streak log.
+    private let minRecordableSeconds = 20
+
+    private var hasProgress: Bool { session.isActive || session.elapsedTime > 0 }
+
     private let timer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
     
     // MARK: - Extended Runtime Session Management
@@ -30,7 +38,44 @@ struct PranayamaTimerView: View {
         HealthKitManager.shared.saveMindfulSession(start: start, end: Date())
         mindfulStartDate = nil
     }
-    
+
+    /// Ends the current (possibly partial) session, recording it to history when
+    /// it ran long enough. Returns the elapsed seconds so callers can show a summary.
+    @discardableResult
+    private func endCurrentSession() -> Int {
+        if session.isActive { session.pause() } // snapshot precise elapsed
+        let elapsed = session.elapsedTime
+        let patternRaw = pattern.type.rawValue
+        saveMindfulSessionIfNeeded()
+        stopExtendedSession()
+        if elapsed >= minRecordableSeconds {
+            heart.stop { aggregate in
+                healthCoordinator.finalize(aggregate: aggregate) { metrics in
+                    StreakManager.shared.recordSession(.pranayama, duration: elapsed, pattern: patternRaw, metrics: metrics)
+                }
+            }
+        } else {
+            heart.stop()
+        }
+        session.reset()
+        return elapsed
+    }
+
+    /// Close (X) button: stop the session, save any progress, reset, and dismiss.
+    /// No confirmation dialog — it conflicts with the other presentation modifiers
+    /// inside a watchOS sheet and would silently fail to appear.
+    private func closeSession() {
+        if hasProgress {
+            endCurrentSession()
+        } else {
+            session.reset()
+            saveMindfulSessionIfNeeded()
+            stopExtendedSession()
+            heart.stop()
+        }
+        presentationMode.wrappedValue.dismiss()
+    }
+
     init(pattern: PranayamaPattern) {
         self.pattern = pattern
         self._session = StateObject(wrappedValue: PranayamaSession(pattern: pattern))
@@ -42,17 +87,21 @@ struct PranayamaTimerView: View {
                 DesignSystem.Colors.backgroundGradient
                     .ignoresSafeArea()
                 
-                let M = WatchMetrics.current(dynamicType: .medium)
-                
-                VStack(spacing: 6) {
+                let M = WatchMetrics.current(dynamicType: dyn)
+
+                GeometryReader { geo in
+                  let controlSize = min(58, max(44, M.buttonSize))
+                  let available = geo.size.height
+                  // Reserve space for header, time row, controls, and spacings; the
+                  // breathing ring takes the rest. No ScrollView, so taps on the
+                  // controls are never swallowed by a scroll/swipe gesture.
+                  let reserved: CGFloat = controlSize + 80
+                  let viz = max(56, min(available - reserved, M.ringDiameter * 0.78))
+                  VStack(spacing: 6) {
                     // Header
                     HStack(alignment: .center) {
                         Button(action: {
-                            session.reset()
-                            saveMindfulSessionIfNeeded()
-                            stopExtendedSession()
-                            heart.stop()
-                            presentationMode.wrappedValue.dismiss()
+                            closeSession()
                         }) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 12, weight: .semibold))
@@ -94,16 +143,16 @@ struct PranayamaTimerView: View {
                         // Background circle
                         Circle()
                             .stroke(Color.white.opacity(0.1), lineWidth: 2)
-                            .frame(width: M.ringDiameter * 0.6, height: M.ringDiameter * 0.6)
+                            .frame(width: viz, height: viz)
                         
                         // Breathing circle that expands/contracts
                         Circle()
                             .fill(phaseColor.opacity(0.6))
                             .frame(
-                                width: breathingSize * 0.6,
-                                height: breathingSize * 0.6
+                                width: breathFill(maxD: viz),
+                                height: breathFill(maxD: viz)
                             )
-                            .animation(DesignSystem.Animation.phaseTransition, value: breathingSize)
+                            .animation(DesignSystem.Animation.phaseTransition, value: session.phaseProgress)
                         
                         // Phase indicator
                         VStack(spacing: 2) {
@@ -135,7 +184,7 @@ struct PranayamaTimerView: View {
                     .padding(.horizontal, M.hPad)
                     
                     // Control buttons
-                    HStack(spacing: 16) {
+                    HStack(spacing: M.buttonSpacing) {
                         Button(action: {
                             if session.isActive {
                                 session.pause()
@@ -164,7 +213,7 @@ struct PranayamaTimerView: View {
                                     .font(.system(size: 9, weight: .semibold, design: .rounded))
                                     .foregroundColor(.white)
                             }
-                            .frame(width: 60, height: 60)
+                            .frame(width: controlSize, height: controlSize)
                             .background(
                                 Circle()
                                     .fill(session.isActive ? DesignSystem.Colors.pauseOrange : DesignSystem.Colors.playGreen)
@@ -179,10 +228,12 @@ struct PranayamaTimerView: View {
                         .accessibilityIdentifier("pranayama-start-pause")
                         
                         Button(action: {
-                            session.reset()
-                            saveMindfulSessionIfNeeded()
-                            stopExtendedSession()
-                            heart.stop()
+                            let elapsed = endCurrentSession()
+                            if elapsed >= minRecordableSeconds {
+                                completionSummary = "\(pattern.type.displayName) · \(formatTime(elapsed)) recorded"
+                                dismissAfterSummary = false
+                                showingCompletionSummary = true
+                            }
                         }) {
                             VStack(spacing: 3) {
                                 Image(systemName: "stop.fill")
@@ -193,10 +244,11 @@ struct PranayamaTimerView: View {
                                     .font(.system(size: 9, weight: .semibold, design: .rounded))
                                     .foregroundColor(.white)
                             }
-                            .frame(width: 60, height: 60)
+                            .frame(width: controlSize, height: controlSize)
                             .background(
                                 Circle()
                                     .fill(DesignSystem.Colors.stopRed)
+                                    .opacity(hasProgress ? 1 : 0.4)
                                     .overlay(
                                         Circle()
                                             .stroke(Color.white.opacity(0.3), lineWidth: 2)
@@ -204,6 +256,7 @@ struct PranayamaTimerView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .disabled(!hasProgress)
                         .accessibilityIdentifier("pranayama-stop")
                     }
                     .padding(.horizontal, M.hPad)
@@ -219,9 +272,10 @@ struct PranayamaTimerView: View {
                             .minimumScaleFactor(0.8)
                     }
                     
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Spacer(minLength: 0)
+                    }
+                    .frame(width: geo.size.width, height: available, alignment: .top)
+                  }
             }
             .navigationBarHidden(true)
         }
@@ -244,6 +298,7 @@ struct PranayamaTimerView: View {
                     }
                 }
                 completionSummary = "\(pattern.type.displayName) finished"
+                dismissAfterSummary = true
                 showingCompletionSummary = true
             }
         }
@@ -265,7 +320,12 @@ struct PranayamaTimerView: View {
             LaunchStateStore.rememberPranayamaType(pattern.type.rawValue)
         }
         .alert("Session Complete", isPresented: $showingCompletionSummary) {
-            Button("Done", role: .cancel) { }
+            Button("Done", role: .cancel) {
+                if dismissAfterSummary {
+                    dismissAfterSummary = false
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
         } message: {
             Text(completionSummary)
         }
@@ -290,18 +350,17 @@ struct PranayamaTimerView: View {
         }
     }
     
-    private var breathingSize: CGFloat {
-        let M = WatchMetrics.current(dynamicType: .medium)
-        let baseSize: CGFloat = 30
-        let maxSize: CGFloat = M.ringDiameter * 0.4
-        
+    /// Diameter of the animated breathing circle, scaled to the available ring
+    /// diameter `maxD` so it never exceeds the visualization bounds.
+    private func breathFill(maxD: CGFloat) -> CGFloat {
+        let base = maxD * 0.45
         switch session.currentPhase {
         case .inhale:
-            return baseSize + (maxSize - baseSize) * session.phaseProgress
+            return base + (maxD - base) * session.phaseProgress
         case .hold1, .hold2:
-            return maxSize
+            return maxD
         case .exhale:
-            return maxSize - (maxSize - baseSize) * session.phaseProgress
+            return maxD - (maxD - base) * session.phaseProgress
         }
     }
     

@@ -18,7 +18,14 @@
 import Foundation
 
 enum CompanionSchema {
-    static let version = 3
+    static let version = 4
+}
+
+/// Single heart-rate datapoint captured during a session. `secondsFromStart`
+/// is monotonically increasing; `bpm` is the instantaneous BPM rounded to int.
+struct CompanionHRSample: Codable, Equatable {
+    let t: Int
+    let bpm: Int
 }
 
 struct CompanionStreakSummary: Codable {
@@ -68,6 +75,9 @@ struct CompanionSessionEvent: Codable, Identifiable {
     let hrvPostSdnnMs: Double?
     let spo2PrePercent: Double?
     let spo2PostPercent: Double?
+    /// Downsampled HR timeseries captured during the session (typically 1 sample
+    /// per 5s). Nil when HR was not captured or the user is on schema < 4.
+    let hrSamples: [CompanionHRSample]?
 
     init(id: String,
          activityTypeRawValue: String,
@@ -80,7 +90,8 @@ struct CompanionSessionEvent: Codable, Identifiable {
          hrvPreSdnnMs: Double? = nil,
          hrvPostSdnnMs: Double? = nil,
          spo2PrePercent: Double? = nil,
-         spo2PostPercent: Double? = nil) {
+         spo2PostPercent: Double? = nil,
+         hrSamples: [CompanionHRSample]? = nil) {
         self.id = id
         self.activityTypeRawValue = activityTypeRawValue
         self.durationSeconds = durationSeconds
@@ -93,13 +104,16 @@ struct CompanionSessionEvent: Codable, Identifiable {
         self.hrvPostSdnnMs = hrvPostSdnnMs
         self.spo2PrePercent = spo2PrePercent
         self.spo2PostPercent = spo2PostPercent
+        self.hrSamples = hrSamples
     }
 
-    // Backwards-compatible decode: v1/v2 events lack the health fields.
+    // Backwards-compatible decode: v1/v2 events lack the health fields,
+    // v3 events lack `hrSamples`.
     private enum CodingKeys: String, CodingKey {
         case id, activityTypeRawValue, durationSeconds, date, pattern
         case avgHeartRate, avgRespiratoryRate, activeEnergyKcal
         case hrvPreSdnnMs, hrvPostSdnnMs, spo2PrePercent, spo2PostPercent
+        case hrSamples
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -115,6 +129,7 @@ struct CompanionSessionEvent: Codable, Identifiable {
         hrvPostSdnnMs = try c.decodeIfPresent(Double.self, forKey: .hrvPostSdnnMs)
         spo2PrePercent = try c.decodeIfPresent(Double.self, forKey: .spo2PrePercent)
         spo2PostPercent = try c.decodeIfPresent(Double.self, forKey: .spo2PostPercent)
+        hrSamples = try c.decodeIfPresent([CompanionHRSample].self, forKey: .hrSamples)
     }
 }
 

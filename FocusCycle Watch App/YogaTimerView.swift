@@ -39,6 +39,9 @@ struct YogaTimerView: View {
     @State private var completionSummary = ""
     @State private var showingCompletionSummary = false
     @State private var statusMessage: String?
+    @State private var dismissAfterSummary = false
+
+    private var hasProgress: Bool { isTimerRunning || elapsedSeconds > 0 }
     
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     private let asanaCycleIntervalSeconds: Int = 8
@@ -183,18 +186,33 @@ struct YogaTimerView: View {
     }
     
     func resetTimer() {
-        endSession(showSummary: false)
+        endSession(showSummary: true)
     }
 
-    private func endSession(showSummary: Bool) {
+    /// Close (X) button: stop the timer, save any in-progress session, reset, and
+    /// dismiss. No confirmation dialog — it conflicts with the other presentation
+    /// modifiers inside a watchOS sheet and would silently fail to appear.
+    private func closeSession() {
+        if hasProgress {
+            // Stops the timer, records the partial session, and resets state.
+            endSession(showSummary: false)
+        } else {
+            if let start = mindfulStartDate {
+                HealthKitManager.shared.saveMindfulSession(start: start, end: Date())
+                mindfulStartDate = nil
+            }
+            stopExtendedSession()
+        }
+        presentationMode.wrappedValue.dismiss()
+    }
+
+    private func endSession(showSummary: Bool, dismissAfter: Bool = false) {
         withAnimation(DesignSystem.Animation.standard) {
             let completedSeconds = elapsedSeconds
             if let start = mindfulStartDate {
                 HealthKitManager.shared.saveMindfulSession(start: start, end: Date())
                 mindfulStartDate = nil
             }
-            SessionLogManager.shared.appendSession(from: heart.samples)
-
             isTimerRunning = false
             elapsedSeconds = 0
             accumulatedPausedSeconds = 0
@@ -213,6 +231,7 @@ struct YogaTimerView: View {
                 let minutes = completedSeconds / 60
                 let seconds = completedSeconds % 60
                 completionSummary = minutes > 0 ? "\(minutes)m \(seconds)s completed" : "\(seconds)s completed"
+                dismissAfterSummary = dismissAfter
                 showingCompletionSummary = true
             }
         }
@@ -229,13 +248,20 @@ struct YogaTimerView: View {
                     .ignoresSafeArea()
 
                 let M = WatchMetrics.current(dynamicType: dyn)
-                let R = M.ringDiameter
                 let controlSpacing = max(14, M.buttonSpacing)
 
-                VStack(spacing: 10) {
-                    // Top spacer with safe area consideration
+                GeometryReader { geo in
+                  let controlsH = min(64, max(44, M.buttonSize))
+                  let available = geo.size.height
+                  // Larger ring, biased toward the top of the screen while still
+                  // guaranteeing room for the controls below it (no scrolling, so
+                  // taps on the controls are never swallowed by a scroll gesture).
+                  let R = max(96, min(available - (controlsH + 38), available * 0.60, 168))
+                  let s = R / M.ringDiameter
+                  VStack(spacing: 8) {
+                    // Small top inset so the ring sits high on the screen.
                     Spacer()
-                        .frame(maxHeight: 12)
+                        .frame(height: 2)
 
                     // Timer Display with Progress Ring
                     ZStack {
@@ -253,11 +279,11 @@ struct YogaTimerView: View {
                                     lineWidth: M.singleLineWidth,
                                     color: isTimerRunning ? DesignSystem.Colors.focusBlue : DesignSystem.Colors.textTertiary
                                 )
-                                .frame(width: M.innerSingleDiameter, height: M.innerSingleDiameter)
+                                .frame(width: M.innerSingleDiameter * s, height: M.innerSingleDiameter * s)
                             } else {
                                 let colors: [Color] = [DesignSystem.Colors.focusBlue, DesignSystem.Colors.playGreen]
-                                let baseSize: CGFloat = M.multiBaseDiameter
-                                let step: CGFloat = M.multiStep
+                                let baseSize: CGFloat = M.multiBaseDiameter * s
+                                let step: CGFloat = M.multiStep * s
                                 let intervals = Array(multipleIntervals.prefix(2))
                                 ForEach(intervals.indices, id: \.self) { idx in
                                     let interval = intervals[idx]
@@ -283,7 +309,7 @@ struct YogaTimerView: View {
                                 .renderingMode(.original)
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: M.gearSize, height: M.gearSize)
+                                .frame(width: R * 0.46, height: R * 0.46)
                         }
                         .accessibilityLabel("Settings")
                         .accessibilityHint("Opens app settings")
@@ -295,14 +321,14 @@ struct YogaTimerView: View {
                     VStack(spacing: 10) {
                         ViewThatFits(in: .horizontal) {
                             HStack(spacing: controlSpacing) {
-                                controlsPlayButton(buttonSize: M.buttonSize, scale: 1.0, R: R)
-                                controlsResetButton(buttonSize: M.buttonSize, scale: 1.0, R: R)
+                                controlsPlayButton(buttonSize: controlsH, scale: 1.0, R: R)
+                                controlsResetButton(buttonSize: controlsH, scale: 1.0, R: R)
                             }
                             .frame(maxWidth: .infinity)
 
                             VStack(spacing: 10) {
-                                controlsPlayButton(buttonSize: M.buttonSize, scale: 1.0, R: R)
-                                controlsResetButton(buttonSize: M.buttonSize, scale: 1.0, R: R)
+                                controlsPlayButton(buttonSize: controlsH, scale: 1.0, R: R)
+                                controlsResetButton(buttonSize: controlsH, scale: 1.0, R: R)
                             }
                             .frame(maxWidth: .infinity)
                         }
@@ -320,21 +346,15 @@ struct YogaTimerView: View {
                             .padding(.horizontal, M.hPad)
                     }
 
-                    // Bottom spacer with safe area consideration
-                    Spacer()
-                        .frame(maxHeight: 12)
+                    // Push everything toward the top so the ring sits higher.
+                    Spacer(minLength: 0)
+                    }
+                    .frame(width: geo.size.width, height: available, alignment: .top)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 // Floating close button — overlay so it doesn't displace timer layout.
                 Button {
-                    isTimerRunning = false
-                    if let start = mindfulStartDate {
-                        HealthKitManager.shared.saveMindfulSession(start: start, end: Date())
-                        mindfulStartDate = nil
-                    }
-                    stopExtendedSession()
-                    presentationMode.wrappedValue.dismiss()
+                    closeSession()
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .semibold))
@@ -380,7 +400,12 @@ struct YogaTimerView: View {
         .onChange(of: multipleIntervalsSequenceDurationMinutes) { _, new in prefs.asanaCount = new }
         .onChange(of: multipleIntervals) { _, new in prefs.updateIntervals(new) }
         .alert("Session Complete", isPresented: $showingCompletionSummary) {
-            Button("Done", role: .cancel) { }
+            Button("Done", role: .cancel) {
+                if dismissAfterSummary {
+                    dismissAfterSummary = false
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
         } message: {
             Text(completionSummary)
         }
@@ -409,7 +434,7 @@ struct YogaTimerView: View {
                 singleIntervalSequenceDurationSeconds : multipleIntervalsSequenceDurationSeconds
 
             if currentOverallSequenceDurationSeconds > 0 && elapsedSeconds >= currentOverallSequenceDurationSeconds {
-                endSession(showSummary: true)
+                endSession(showSummary: true, dismissAfter: true)
                 return
             }
 
@@ -515,6 +540,16 @@ extension YogaTimerView {
                     )
                 }
             }
+            // Always show a clear play/pause glyph so the control's function is
+            // obvious even while the asana artwork is animating.
+            .overlay(alignment: .bottom) {
+                Image(systemName: isTimerRunning ? "pause.fill" : "play.fill")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.white)
+                    .padding(4)
+                    .background(Circle().fill(Color.black.opacity(0.4)))
+                    .padding(.bottom, 2)
+            }
         }
         .accessibilityLabel(isTimerRunning ? "Pause timer" : "Start timer")
         .accessibilityHint(isTimerRunning ? "Pauses the current session" : "Starts the focus session")
@@ -544,6 +579,14 @@ extension YogaTimerView {
                         .foregroundColor(.white)
                         .shadow(color: Color.black.opacity(0.6), radius: 1.5, x: 0, y: 0)
                 }
+            }
+            .overlay(alignment: .bottom) {
+                Image(systemName: "stop.fill")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.white)
+                    .padding(4)
+                    .background(Circle().fill(Color.black.opacity(0.4)))
+                    .padding(.bottom, 2)
             }
         }
         .accessibilityLabel("Reset timer")

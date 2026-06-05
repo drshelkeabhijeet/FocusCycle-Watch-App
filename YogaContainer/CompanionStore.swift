@@ -1,11 +1,15 @@
 import Foundation
+import os
 
 @MainActor
 final class CompanionStore: ObservableObject {
-    // Singleton handle is nonisolated so other singletons (e.g. WatchConnectivityManager)
-    // can construct themselves with this reference during their own static init.
-    // Instance methods/properties remain main-actor isolated.
-    nonisolated static let shared = CompanionStore()
+    // SwiftUI guarantees `@StateObject` initialization on the main actor; the
+    // App entry point holds `CompanionStore.shared`, so first access is always
+    // main-actor isolated. `assumeIsolated` lets us run a `@MainActor` init
+    // synchronously, which is essential — see the persistence race notes below.
+    nonisolated(unsafe) static let shared: CompanionStore = MainActor.assumeIsolated {
+        CompanionStore()
+    }
 
     @Published private(set) var snapshot: CompanionStateSnapshot?
     @Published private(set) var sessionEvents: [CompanionSessionEvent] = []
@@ -16,13 +20,16 @@ final class CompanionStore: ObservableObject {
     private let pendingCommandsKey = "companion.pending.commands.json"
     private let defaults = UserDefaults.standard
     private let ioQueue = DispatchQueue(label: "CompanionStore.io")
+    private static let log = Logger(subsystem: "com.abhijeetshelke.Yoga-Timer", category: "ios.store")
 
-    private nonisolated init() {
-        // Defer state hydration to the main actor.
-        Task { @MainActor in self.load() }
+    private init() {
+        // CRITICAL: load synchronously. An earlier version deferred load() to a
+        // Task, which created a window where an incoming snapshot/event would
+        // trigger persist() with the in-memory buckets still at their default
+        // empty state, overwriting on-disk events/commands with [].
+        load()
     }
 
-    // Callable from any thread; hops to main if needed.
     nonisolated func ingestSnapshot(_ incoming: CompanionStateSnapshot) {
         Task { @MainActor in self.ingestSnapshotOnMain(incoming) }
     }
@@ -32,16 +39,21 @@ final class CompanionStore: ObservableObject {
     }
 
     private func ingestSnapshotOnMain(_ incoming: CompanionStateSnapshot) {
-        if let current = self.snapshot {
-            // Tie-break order: prefer larger sequence; if both unset, fall back to date.
-            if current.sequence > 0 || incoming.sequence > 0 {
-                if current.sequence >= incoming.sequence { return }
-            } else if current.generatedAt > incoming.generatedAt {
-                return
-            }
+        if let current = self.snapshot, !isNewer(incoming: incoming, than: current) {
+            return
         }
         self.snapshot = incoming
-        self.persist()
+        persistSnapshot()
+    }
+
+    /// Newer-wins predicate that is robust to watch reinstalls (sequence reset)
+    /// and clock drift: accept if EITHER the sequence advanced OR the timestamp
+    /// is newer. This prevents a stale-sequence comparison from permanently
+    /// rejecting otherwise-fresh snapshots.
+    private func isNewer(incoming: CompanionStateSnapshot, than current: CompanionStateSnapshot) -> Bool {
+        if incoming.sequence > current.sequence { return true }
+        if incoming.generatedAt > current.generatedAt { return true }
+        return false
     }
 
     private func ingestSessionEventOnMain(_ event: CompanionSessionEvent) {
@@ -50,50 +62,63 @@ final class CompanionStore: ObservableObject {
         if self.sessionEvents.count > 500 {
             self.sessionEvents = Array(self.sessionEvents.prefix(500))
         }
-        self.persist()
+        persistEvents()
     }
 
     func enqueueCommand(_ command: CompanionCommandPayload) {
         self.pendingCommands.append(command)
-        self.persist()
+        persistPending()
     }
 
     func markCommandDispatched(_ commandID: String) {
         self.pendingCommands.removeAll { $0.id == commandID }
-        self.persist()
+        persistPending()
     }
 
     func clearPendingCommands() {
         self.pendingCommands.removeAll()
-        self.persist()
+        persistPending()
     }
 
     func clearSessionHistory() {
         self.sessionEvents.removeAll()
-        self.persist()
+        persistEvents()
     }
 
     private func load() {
-        snapshot = decode(CompanionStateSnapshot.self, key: snapshotKey)
-        sessionEvents = decode([CompanionSessionEvent].self, key: eventsKey) ?? []
-        pendingCommands = decode([CompanionCommandPayload].self, key: pendingCommandsKey) ?? []
+        if let data = defaults.data(forKey: snapshotKey) {
+            do { snapshot = try JSONDecoder().decode(CompanionStateSnapshot.self, from: data) }
+            catch { Self.log.error("snapshot decode failed: \(error.localizedDescription, privacy: .public)") }
+        }
+        if let data = defaults.data(forKey: eventsKey) {
+            do { sessionEvents = try JSONDecoder().decode([CompanionSessionEvent].self, from: data) }
+            catch { Self.log.error("events decode failed: \(error.localizedDescription, privacy: .public)") }
+        }
+        if let data = defaults.data(forKey: pendingCommandsKey) {
+            do { pendingCommands = try JSONDecoder().decode([CompanionCommandPayload].self, from: data) }
+            catch { Self.log.error("pending decode failed: \(error.localizedDescription, privacy: .public)") }
+        }
     }
 
-    private func persist() {
-        let snap = snapshot
-        let events = sessionEvents
-        let pending = pendingCommands
-        let snapKey = snapshotKey
-        let evKey = eventsKey
-        let pKey = pendingCommandsKey
-        // UserDefaults is documented as thread-safe; mark capture nonisolated-unsafe
-        // to silence the Sendable warning without wrapping at every call site.
+    private func persistSnapshot() {
+        let value = snapshot
+        let key = snapshotKey
         nonisolated(unsafe) let defaultsRef = defaults
-        ioQueue.async {
-            Self.encode(snap, key: snapKey, defaults: defaultsRef)
-            Self.encode(events, key: evKey, defaults: defaultsRef)
-            Self.encode(pending, key: pKey, defaults: defaultsRef)
-        }
+        ioQueue.async { Self.encode(value, key: key, defaults: defaultsRef) }
+    }
+
+    private func persistEvents() {
+        let value = sessionEvents
+        let key = eventsKey
+        nonisolated(unsafe) let defaultsRef = defaults
+        ioQueue.async { Self.encode(value, key: key, defaults: defaultsRef) }
+    }
+
+    private func persistPending() {
+        let value = pendingCommands
+        let key = pendingCommandsKey
+        nonisolated(unsafe) let defaultsRef = defaults
+        ioQueue.async { Self.encode(value, key: key, defaults: defaultsRef) }
     }
 
     private nonisolated static func encode<T: Encodable>(_ value: T?, key: String, defaults: UserDefaults) {
@@ -103,11 +128,8 @@ final class CompanionStore: ObservableObject {
         }
         if let data = try? JSONEncoder().encode(value) {
             defaults.set(data, forKey: key)
+        } else {
+            log.error("encode failed for key=\(key, privacy: .public)")
         }
-    }
-
-    private func decode<T: Decodable>(_ type: T.Type, key: String) -> T? {
-        guard let data = defaults.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(T.self, from: data)
     }
 }
