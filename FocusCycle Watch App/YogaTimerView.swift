@@ -259,10 +259,7 @@ struct YogaTimerView: View {
                   let R = max(96, min(available - (controlsH + 38), available * 0.60, 168))
                   let s = R / M.ringDiameter
                   VStack(spacing: 8) {
-                    // Small top inset so the ring sits high on the screen.
-                    Spacer()
-                        .frame(height: 2)
-
+                    // Ring/sun hug the very top of the screen.
                     // Timer Display with Progress Ring
                     ZStack {
                         ProgressRing(
@@ -317,6 +314,9 @@ struct YogaTimerView: View {
                         .zIndex(100)
                     }
 
+                    // Push the ring/sun toward the top; keep controls lower.
+                    Spacer(minLength: 6)
+
                     // Controls with proper spacing
                     VStack(spacing: 10) {
                         ViewThatFits(in: .horizontal) {
@@ -346,8 +346,7 @@ struct YogaTimerView: View {
                             .padding(.horizontal, M.hPad)
                     }
 
-                    // Push everything toward the top so the ring sits higher.
-                    Spacer(minLength: 0)
+                    Spacer().frame(height: 4)
                     }
                     .frame(width: geo.size.width, height: available, alignment: .top)
                 }
@@ -357,10 +356,10 @@ struct YogaTimerView: View {
                     closeSession()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.9))
-                        .frame(width: 24, height: 24)
-                        .background(Circle().fill(Color.black.opacity(0.35)))
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white.opacity(0.95))
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(Color.black.opacity(0.4)))
                 }
                 .buttonStyle(PlainButtonStyle())
                 .accessibilityLabel("Close")
@@ -497,6 +496,9 @@ struct YogaTimerView: View {
                 startExtendedSession()
             }
         }
+        // Prevent an accidental swipe (e.g. a slight drag while tapping pause)
+        // from dismissing the session. The X button dismisses programmatically.
+        .interactiveDismissDisabled(true)
     }
 }
 

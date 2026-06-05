@@ -337,6 +337,9 @@ struct PranayamaTimerView: View {
                 heart.stop()
             }
         }
+        // Prevent an accidental swipe (e.g. a slight drag while tapping pause)
+        // from dismissing the session. The X button dismisses programmatically.
+        .interactiveDismissDisabled(true)
     }
     
     private var phaseColor: Color {
