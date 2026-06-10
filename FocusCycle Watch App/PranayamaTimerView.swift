@@ -12,7 +12,6 @@ struct PranayamaTimerView: View {
     @State private var mindfulStartDate: Date?
     @StateObject private var heart = HeartRateManager()
     private let healthCoordinator = SessionHealthCoordinator()
-    @Environment(\.presentationMode) var presentationMode
     @Environment(\.dynamicTypeSize) private var dyn
     @State private var dismissAfterSummary = false
 
@@ -61,9 +60,8 @@ struct PranayamaTimerView: View {
         return elapsed
     }
 
-    /// Close (X) button: stop the session, save any progress, reset, and dismiss.
-    /// No confirmation dialog — it conflicts with the other presentation modifiers
-    /// inside a watchOS sheet and would silently fail to appear.
+    /// Close (X) button: stop the session, save any progress, reset, and leave
+    /// the session screen via the root router.
     private func closeSession() {
         if hasProgress {
             endCurrentSession()
@@ -73,7 +71,7 @@ struct PranayamaTimerView: View {
             stopExtendedSession()
             heart.stop()
         }
-        presentationMode.wrappedValue.dismiss()
+        SessionRouter.shared.end()
     }
 
     init(pattern: PranayamaPattern) {
@@ -323,7 +321,7 @@ struct PranayamaTimerView: View {
             Button("Done", role: .cancel) {
                 if dismissAfterSummary {
                     dismissAfterSummary = false
-                    presentationMode.wrappedValue.dismiss()
+                    SessionRouter.shared.end()
                 }
             }
         } message: {

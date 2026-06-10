@@ -189,9 +189,8 @@ struct YogaTimerView: View {
         endSession(showSummary: true)
     }
 
-    /// Close (X) button: stop the timer, save any in-progress session, reset, and
-    /// dismiss. No confirmation dialog — it conflicts with the other presentation
-    /// modifiers inside a watchOS sheet and would silently fail to appear.
+    /// Close (X) button: stop the timer, save any in-progress session, reset,
+    /// and leave the session screen via the root router.
     private func closeSession() {
         if hasProgress {
             // Stops the timer, records the partial session, and resets state.
@@ -203,7 +202,7 @@ struct YogaTimerView: View {
             }
             stopExtendedSession()
         }
-        presentationMode.wrappedValue.dismiss()
+        SessionRouter.shared.end()
     }
 
     private func endSession(showSummary: Bool, dismissAfter: Bool = false) {
@@ -239,8 +238,6 @@ struct YogaTimerView: View {
     
     // MARK: - Body
     @Environment(\.dynamicTypeSize) private var dyn
-    @Environment(\.presentationMode) private var presentationMode
-
     var body: some View {
         NavigationView {
             ZStack(alignment: .topLeading) {
@@ -402,7 +399,7 @@ struct YogaTimerView: View {
             Button("Done", role: .cancel) {
                 if dismissAfterSummary {
                     dismissAfterSummary = false
-                    presentationMode.wrappedValue.dismiss()
+                    SessionRouter.shared.end()
                 }
             }
         } message: {

@@ -202,6 +202,10 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
             return false
 
         case "applyPreset":
+            // Never mutate preset storage while a practice session is running:
+            // the landing page observes these keys, and historically mid-session
+            // writes caused UI churn. iOS re-sends presets on its next change.
+            guard !SessionRouter.isPracticeActive else { return false }
             guard let apply = command.applyPreset else { return false }
             switch apply.practice {
             case "yoga":

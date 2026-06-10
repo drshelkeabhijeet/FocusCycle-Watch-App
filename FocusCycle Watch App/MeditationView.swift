@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MeditationView: View {
     @State private var selectedDuration: Int = 10 // minutes
-    @State private var showingTimer = false
     @AppStorage("meditationCustomDurationMinutes") private var customDuration: Int = 12
     @AppStorage("meditationUserPresetJSON") private var userPresetJSON: String = ""
     @State private var showingPresetEditor = false
@@ -135,7 +134,9 @@ struct MeditationView: View {
                             .buttonStyle(PlainButtonStyle())
                         }
 
-                        Button(action: { showingTimer = true }) {
+                        Button(action: {
+                            SessionRouter.shared.start(.meditation(selectedDuration))
+                        }) {
                             HStack(spacing: 6) {
                                 Image(systemName: "play.fill")
                                 Text("Start \(selectedDuration)m")
@@ -165,9 +166,6 @@ struct MeditationView: View {
                         .foregroundColor(DesignSystem.Colors.focusBlue)
                 }
             }
-        }
-        .sheet(isPresented: $showingTimer) {
-            MeditationTimerView(duration: selectedDuration)
         }
         .sheet(isPresented: $showingPresetEditor) {
             MeditationPresetEditor(
@@ -247,7 +245,6 @@ struct MeditationTimerView: View {
     @State private var statusMessage: String?
     @StateObject private var heart = HeartRateManager()
     private let healthCoordinator = SessionHealthCoordinator()
-    @Environment(\.presentationMode) var presentationMode
     @Environment(\.dynamicTypeSize) private var dyn
     @State private var dismissAfterSummary = false
 
@@ -292,9 +289,8 @@ struct MeditationTimerView: View {
         return elapsed
     }
 
-    /// Close (X) button: stop the session, save any progress, reset, and dismiss.
-    /// No confirmation dialog — it conflicts with the other presentation modifiers
-    /// inside a watchOS sheet and would silently fail to appear.
+    /// Close (X) button: stop the session, save any progress, reset, and leave
+    /// the session screen via the root router.
     private func closeSession() {
         if hasProgress {
             endCurrentSession()
@@ -305,7 +301,7 @@ struct MeditationTimerView: View {
             stopExtendedSession()
             heart.stop()
         }
-        presentationMode.wrappedValue.dismiss()
+        SessionRouter.shared.end()
     }
 
     init(duration: Int) {
@@ -565,7 +561,7 @@ struct MeditationTimerView: View {
             Button("Done", role: .cancel) {
                 if dismissAfterSummary {
                     dismissAfterSummary = false
-                    presentationMode.wrappedValue.dismiss()
+                    SessionRouter.shared.end()
                 }
             }
         } message: {

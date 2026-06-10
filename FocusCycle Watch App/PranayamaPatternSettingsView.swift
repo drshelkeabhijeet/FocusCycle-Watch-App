@@ -3,7 +3,6 @@ import SwiftUI
 struct PranayamaPatternSettingsView: View {
     let patternType: PranayamaType
     @StateObject private var settingsManager = PranayamaSettingsManager.shared
-    @State private var showingTimer = false
     @Environment(\.dismiss) var dismiss
 
     var pattern: PranayamaPattern {
@@ -103,7 +102,10 @@ struct PranayamaPatternSettingsView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
 
-                        Button(action: { showingTimer = true }) {
+                        Button(action: {
+                            LaunchStateStore.rememberPranayamaType(patternType.rawValue)
+                            SessionRouter.shared.start(.pranayama(patternType))
+                        }) {
                             HStack(spacing: 6) {
                                 Image(systemName: "play.fill")
                                 Text("Start")
@@ -141,9 +143,6 @@ struct PranayamaPatternSettingsView: View {
                     .accessibilityLabel("Reset to defaults")
                 }
             }
-        }
-        .sheet(isPresented: $showingTimer) {
-            PranayamaTimerView(pattern: settingsManager.getPattern(for: patternType))
         }
     }
 

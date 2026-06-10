@@ -2,7 +2,6 @@ import SwiftUI
 
 struct PranayamaView: View {
     @StateObject private var settingsManager = PranayamaSettingsManager.shared
-    @State private var selectedPatternForTimer: PranayamaType?
     @State private var selectedPatternForSettings: PranayamaType?
     @Environment(\.dismiss) private var dismiss
 
@@ -21,7 +20,9 @@ struct PranayamaView: View {
                                 pattern: pattern,
                                 onStart: {
                                     LaunchStateStore.rememberPranayamaType(pattern.type.rawValue)
-                                    selectedPatternForTimer = pattern.type
+                                    // Start at the app root; this customize sheet
+                                    // disappears with the landing page underneath.
+                                    SessionRouter.shared.start(.pranayama(pattern.type))
                                 },
                                 onCustomize: {
                                     LaunchStateStore.rememberPranayamaType(pattern.type.rawValue)
@@ -46,9 +47,6 @@ struct PranayamaView: View {
         }
         .sheet(item: $selectedPatternForSettings) { patternType in
             PranayamaPatternSettingsView(patternType: patternType)
-        }
-        .sheet(item: $selectedPatternForTimer) { patternType in
-            PranayamaTimerView(pattern: settingsManager.getPattern(for: patternType))
         }
     }
 }

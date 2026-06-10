@@ -1,22 +1,19 @@
 import SwiftUI
 
-/// Identifies what we want to present as a full-screen sheet from the landing pager.
-/// Using `.sheet(item:)` (driven by State) instead of `NavigationLink` is required
-/// because `NavigationLink` inside a `TabView(.page)` is dismissed on watchOS as
-/// soon as the parent re-renders.
+/// Identifies which customize screen to present as a sheet from the landing
+/// pager. Using `.sheet(item:)` (driven by State) instead of `NavigationLink`
+/// is required because `NavigationLink` inside a `TabView(.page)` is dismissed
+/// on watchOS as soon as the parent re-renders.
+///
+/// Timer sessions are NOT presented from here — they're swapped in at the app
+/// root via `SessionRouter` so landing-page re-renders can't tear them down.
 private enum LandingPresentation: Hashable, Identifiable {
-    case startYoga
-    case startPranayama(PranayamaType)
-    case startMeditation(Int) // minutes
     case customizeYoga
     case customizePranayama
     case customizeMeditation
 
     var id: String {
         switch self {
-        case .startYoga: return "startYoga"
-        case .startPranayama(let t): return "startPranayama-\(t.rawValue)"
-        case .startMeditation(let m): return "startMeditation-\(m)"
         case .customizeYoga: return "customizeYoga"
         case .customizePranayama: return "customizePranayama"
         case .customizeMeditation: return "customizeMeditation"
@@ -27,7 +24,6 @@ private enum LandingPresentation: Hashable, Identifiable {
 struct LandingView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @StateObject private var streakManager = StreakManager.shared
-    @StateObject private var pranayamaSettings = PranayamaSettingsManager.shared
     @StateObject private var quickStart = QuickStartCoordinator.shared
     @State private var selectedPage: LaunchPractice = .yoga
     @State private var presentation: LandingPresentation?
@@ -68,7 +64,7 @@ struct LandingView: View {
                     accentColor: DesignSystem.Colors.focusBlue,
                     streak: streakManager.getCurrentStreak(for: .yoga),
                     startDetail: yogaPresetDetail,
-                    onStart: { presentation = .startYoga },
+                    onStart: { SessionRouter.shared.start(.yoga) },
                     onCustomize: { presentation = .customizeYoga }
                 )
                 .tag(LaunchPractice.yoga)
@@ -79,7 +75,7 @@ struct LandingView: View {
                     accentColor: DesignSystem.Colors.playGreen,
                     streak: streakManager.getCurrentStreak(for: .pranayama),
                     startDetail: lastPranayamaType.displayName,
-                    onStart: { presentation = .startPranayama(lastPranayamaType) },
+                    onStart: { SessionRouter.shared.start(.pranayama(lastPranayamaType)) },
                     onCustomize: { presentation = .customizePranayama }
                 )
                 .tag(LaunchPractice.pranayama)
@@ -90,7 +86,7 @@ struct LandingView: View {
                     accentColor: DesignSystem.Colors.focusPurple,
                     streak: streakManager.getCurrentStreak(for: .meditation),
                     startDetail: "\(meditationDurationMinutes) min",
-                    onStart: { presentation = .startMeditation(meditationDurationMinutes) },
+                    onStart: { SessionRouter.shared.start(.meditation(meditationDurationMinutes)) },
                     onCustomize: { presentation = .customizeMeditation }
                 )
                 .tag(LaunchPractice.meditation)
@@ -117,23 +113,17 @@ struct LandingView: View {
         selectedPage = practice
         switch practice {
         case .yoga:
-            presentation = .startYoga
+            SessionRouter.shared.start(.yoga)
         case .pranayama:
-            presentation = .startPranayama(lastPranayamaType)
+            SessionRouter.shared.start(.pranayama(lastPranayamaType))
         case .meditation:
-            presentation = .startMeditation(meditationDurationMinutes)
+            SessionRouter.shared.start(.meditation(meditationDurationMinutes))
         }
     }
 
     @ViewBuilder
     private func destinationView(for item: LandingPresentation) -> some View {
         switch item {
-        case .startYoga:
-            YogaTimerView()
-        case .startPranayama(let type):
-            PranayamaTimerView(pattern: pranayamaSettings.getPattern(for: type))
-        case .startMeditation(let minutes):
-            MeditationTimerView(duration: minutes)
         case .customizeYoga:
             YogaCustomizeView()
         case .customizePranayama:

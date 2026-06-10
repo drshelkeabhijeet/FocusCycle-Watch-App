@@ -1,8 +1,23 @@
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var router = SessionRouter.shared
+
     var body: some View {
-        LandingView()
+        // The active session is swapped in at the root (not presented as a
+        // sheet) so landing-page re-renders can never tear it down.
+        switch router.active {
+        case .yoga:
+            YogaTimerView()
+        case .pranayama(let type):
+            PranayamaTimerView(pattern: PranayamaSettingsManager.shared.getPattern(for: type))
+                .id(type)
+        case .meditation(let minutes):
+            MeditationTimerView(duration: minutes)
+                .id(minutes)
+        case nil:
+            LandingView()
+        }
     }
 }
 

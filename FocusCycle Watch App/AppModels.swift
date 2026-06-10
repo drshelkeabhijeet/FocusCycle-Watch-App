@@ -103,3 +103,44 @@ final class QuickStartCoordinator: ObservableObject {
     @Published var pendingPractice: LaunchPractice?
     private init() {}
 }
+
+/// The practice session currently running full-screen at the app root.
+enum ActivePracticeSession: Hashable, Identifiable {
+    case yoga
+    case pranayama(PranayamaType)
+    case meditation(Int) // minutes
+
+    var id: String {
+        switch self {
+        case .yoga: return "yoga"
+        case .pranayama(let type): return "pranayama-\(type.rawValue)"
+        case .meditation(let minutes): return "meditation-\(minutes)"
+        }
+    }
+}
+
+/// Root-level router for the active practice session.
+///
+/// Timer screens are swapped in at the app root instead of being presented as
+/// sheets from the landing page: on watchOS, a sheet attached to the page-style
+/// TabView is torn down whenever the landing page re-renders (streak updates
+/// after a session, preset sync from the iPhone, quick-start commands, …),
+/// which made pause/stop appear to "exit the app" mid-session.
+@MainActor
+final class SessionRouter: ObservableObject {
+    static let shared = SessionRouter()
+
+    /// Mirror of `active != nil` readable from non-main threads (e.g.
+    /// WatchConnectivity callbacks). Written only on the main thread; a stale
+    /// read is acceptable for the command gating it backs.
+    nonisolated(unsafe) private(set) static var isPracticeActive = false
+
+    @Published var active: ActivePracticeSession? {
+        didSet { Self.isPracticeActive = active != nil }
+    }
+
+    func start(_ session: ActivePracticeSession) { active = session }
+    func end() { active = nil }
+
+    private init() {}
+}
