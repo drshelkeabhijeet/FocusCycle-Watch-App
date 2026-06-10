@@ -130,14 +130,7 @@ enum ActivePracticeSession: Hashable, Identifiable {
 final class SessionRouter: ObservableObject {
     static let shared = SessionRouter()
 
-    /// Mirror of `active != nil` readable from non-main threads (e.g.
-    /// WatchConnectivity callbacks). Written only on the main thread; a stale
-    /// read is acceptable for the command gating it backs.
-    nonisolated(unsafe) private(set) static var isPracticeActive = false
-
-    @Published var active: ActivePracticeSession? {
-        didSet { Self.isPracticeActive = active != nil }
-    }
+    @Published var active: ActivePracticeSession?
 
     func start(_ session: ActivePracticeSession) { active = session }
     func end() { active = nil }

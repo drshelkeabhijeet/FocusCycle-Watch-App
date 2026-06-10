@@ -39,11 +39,32 @@ final class CompanionStore: ObservableObject {
     }
 
     private func ingestSnapshotOnMain(_ incoming: CompanionStateSnapshot) {
+        // Merge embedded session history regardless of snapshot freshness —
+        // events are immutable and deduped by id, so this can only add ones we
+        // missed (e.g. when a transferUserInfo event was delayed or dropped).
+        mergeRecentEvents(incoming.recentEvents)
+
         if let current = self.snapshot, !isNewer(incoming: incoming, than: current) {
             return
         }
         self.snapshot = incoming
         persistSnapshot()
+    }
+
+    /// Adds snapshot-embedded events that are missing locally. Existing entries
+    /// are kept untouched: the per-event `transferUserInfo` payloads carry the
+    /// full HR series, while embedded copies are stripped.
+    private func mergeRecentEvents(_ incoming: [CompanionSessionEvent]?) {
+        guard let incoming, !incoming.isEmpty else { return }
+        let known = Set(sessionEvents.map(\.id))
+        let missing = incoming.filter { !known.contains($0.id) }
+        guard !missing.isEmpty else { return }
+        sessionEvents.append(contentsOf: missing)
+        sessionEvents.sort { $0.date > $1.date }
+        if sessionEvents.count > 500 {
+            sessionEvents = Array(sessionEvents.prefix(500))
+        }
+        persistEvents()
     }
 
     /// Newer-wins predicate that is robust to watch reinstalls (sequence reset)
@@ -57,8 +78,17 @@ final class CompanionStore: ObservableObject {
     }
 
     private func ingestSessionEventOnMain(_ event: CompanionSessionEvent) {
-        if self.sessionEvents.contains(where: { $0.id == event.id }) { return }
+        if let idx = self.sessionEvents.firstIndex(where: { $0.id == event.id }) {
+            // Upgrade a stripped snapshot-embedded copy with the full payload
+            // (the userInfo event carries the HR series; embedded copies don't).
+            if self.sessionEvents[idx].hrSamples == nil, event.hrSamples != nil {
+                self.sessionEvents[idx] = event
+                persistEvents()
+            }
+            return
+        }
         self.sessionEvents.insert(event, at: 0)
+        self.sessionEvents.sort { $0.date > $1.date }
         if self.sessionEvents.count > 500 {
             self.sessionEvents = Array(self.sessionEvents.prefix(500))
         }

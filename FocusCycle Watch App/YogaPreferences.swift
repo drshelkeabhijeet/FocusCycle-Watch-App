@@ -18,6 +18,15 @@ final class YogaPreferences: ObservableObject {
         static let restSeconds = "yoga.restSeconds"
     }
 
+    // Legacy/mirror keys read by the landing page chip, the complication, and
+    // the companion snapshot (`makeSnapshot()`). Kept in sync on every write so
+    // the iOS app always sees the current preset.
+    private enum Mirror {
+        static let holdSeconds = "userHoldSeconds"
+        static let restSeconds = "userRestSeconds"
+        static let asanaCount = "userAsanaCount"
+    }
+
     @Published var operatingMode: OperatingMode {
         didSet { defaults.set(operatingMode.rawValue, forKey: K.mode) }
     }
@@ -28,13 +37,30 @@ final class YogaPreferences: ObservableObject {
         didSet { defaults.set(singleIntervalSequenceDurationMinutes, forKey: K.singleSequenceMin) }
     }
     @Published var asanaCount: Int {
-        didSet { defaults.set(asanaCount, forKey: K.asanaCount) }
+        didSet {
+            defaults.set(asanaCount, forKey: K.asanaCount)
+            defaults.set(asanaCount, forKey: Mirror.asanaCount)
+            pushSnapshotIfChanged(oldValue, asanaCount)
+        }
     }
     @Published var holdSeconds: Int {
-        didSet { defaults.set(holdSeconds, forKey: K.holdSeconds) }
+        didSet {
+            defaults.set(holdSeconds, forKey: K.holdSeconds)
+            defaults.set(holdSeconds, forKey: Mirror.holdSeconds)
+            pushSnapshotIfChanged(oldValue, holdSeconds)
+        }
     }
     @Published var restSeconds: Int {
-        didSet { defaults.set(restSeconds, forKey: K.restSeconds) }
+        didSet {
+            defaults.set(restSeconds, forKey: K.restSeconds)
+            defaults.set(restSeconds, forKey: Mirror.restSeconds)
+            pushSnapshotIfChanged(oldValue, restSeconds)
+        }
+    }
+
+    private func pushSnapshotIfChanged(_ old: Int, _ new: Int) {
+        guard old != new else { return }
+        WatchConnectivityManager.shared.pushLatestSnapshotDebounced()
     }
 
     private let defaults = UserDefaults.standard
@@ -46,13 +72,30 @@ final class YogaPreferences: ObservableObject {
         self.singleIntervalDurationSeconds = single > 0 ? single : 60
         let singleSeq = defaults.integer(forKey: K.singleSequenceMin)
         self.singleIntervalSequenceDurationMinutes = singleSeq > 0 ? singleSeq : 30
+        // Prefer the canonical yoga.* keys; fall back to the legacy mirror keys
+        // (written by older builds and by iOS preset commands) before defaults.
         let asanas = defaults.integer(forKey: K.asanaCount)
-        self.asanaCount = asanas > 0 ? asanas : 10
+        let mirrorAsanas = defaults.integer(forKey: Mirror.asanaCount)
+        self.asanaCount = asanas > 0 ? asanas : (mirrorAsanas > 0 ? mirrorAsanas : 10)
         let hold = defaults.integer(forKey: K.holdSeconds)
-        self.holdSeconds = hold > 0 ? hold : 60
+        let mirrorHold = defaults.integer(forKey: Mirror.holdSeconds)
+        self.holdSeconds = hold > 0 ? hold : (mirrorHold > 0 ? mirrorHold : 60)
         let rest = defaults.integer(forKey: K.restSeconds)
-        // rest may legitimately be 0; only treat unset (negative) as default
-        self.restSeconds = (rest >= 0 && defaults.object(forKey: K.restSeconds) != nil) ? rest : 20
+        // rest may legitimately be 0; only treat unset as default
+        if defaults.object(forKey: K.restSeconds) != nil, rest >= 0 {
+            self.restSeconds = rest
+        } else if defaults.object(forKey: Mirror.restSeconds) != nil {
+            self.restSeconds = max(0, defaults.integer(forKey: Mirror.restSeconds))
+        } else {
+            self.restSeconds = 20
+        }
+
+        // Property observers don't fire during init — sync the mirror keys
+        // explicitly so the landing chip, complication, and companion snapshot
+        // see consistent values from first launch.
+        defaults.set(self.asanaCount, forKey: Mirror.asanaCount)
+        defaults.set(self.holdSeconds, forKey: Mirror.holdSeconds)
+        defaults.set(self.restSeconds, forKey: Mirror.restSeconds)
     }
 
     /// Build the timer's two-phase interval array from the persisted hold/rest seconds.

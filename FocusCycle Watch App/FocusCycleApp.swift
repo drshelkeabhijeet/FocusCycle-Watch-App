@@ -29,6 +29,8 @@ struct FocusCycle_Watch_AppApp: App {
         case .background:
             // App is going to background - ensure extended runtime is active if timer is running
             NotificationCenter.default.post(name: .appDidEnterBackground, object: nil)
+            // Catch-all sync: deliver any setting changes made this session to iOS.
+            WatchConnectivityManager.shared.pushLatestSnapshot()
         case .active:
             // App is becoming active - resume normal operation
             NotificationCenter.default.post(name: .appDidBecomeActive, object: nil)

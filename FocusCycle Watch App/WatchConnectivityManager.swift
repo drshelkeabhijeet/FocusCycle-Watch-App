@@ -131,6 +131,40 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
         }
     }
 
+    /// Recent sessions embedded in every snapshot so iOS never misses history
+    /// even when individual `transferUserInfo` events are delayed or dropped.
+    /// HR series are stripped and the list capped to respect the ~64KB
+    /// applicationContext limit; full events (with samples) still travel via
+    /// the userInfo queue.
+    private func makeRecentEvents() -> [CompanionSessionEvent] {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -90, to: Date()) ?? .distantPast
+        var allRecords: [SessionRecord] = []
+        for activityType in ActivityType.allCases {
+            let records = StreakManager.shared.getStreakData(for: activityType).sessions
+            allRecords.append(contentsOf: records.filter { $0.date >= cutoff })
+        }
+        return allRecords
+            .sorted { $0.date > $1.date }
+            .prefix(100)
+            .map { record in
+                CompanionSessionEvent(
+                    id: record.id.uuidString,
+                    activityTypeRawValue: record.activityType.rawValue,
+                    durationSeconds: record.duration,
+                    date: record.date,
+                    pattern: record.pattern,
+                    avgHeartRate: record.avgHeartRate,
+                    avgRespiratoryRate: record.avgRespiratoryRate,
+                    activeEnergyKcal: record.activeEnergyKcal,
+                    hrvPreSdnnMs: record.hrvPreSdnnMs,
+                    hrvPostSdnnMs: record.hrvPostSdnnMs,
+                    spo2PrePercent: record.spo2PrePercent,
+                    spo2PostPercent: record.spo2PostPercent,
+                    hrSamples: nil
+                )
+            }
+    }
+
     private func makeSnapshot() -> CompanionStateSnapshot {
         let streaks = StreakManager.shared.companionStreakSummaries()
 
@@ -162,7 +196,8 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
             generatedAt: Date(),
             sequence: nextSnapshotSequence(),
             streaksByActivity: streaks,
-            presets: CompanionPresetsSnapshot(yoga: yoga, pranayama: pranayama, meditation: meditation)
+            presets: CompanionPresetsSnapshot(yoga: yoga, pranayama: pranayama, meditation: meditation),
+            recentEvents: makeRecentEvents()
         )
     }
 
@@ -202,10 +237,6 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
             return false
 
         case "applyPreset":
-            // Never mutate preset storage while a practice session is running:
-            // the landing page observes these keys, and historically mid-session
-            // writes caused UI churn. iOS re-sends presets on its next change.
-            guard !SessionRouter.isPracticeActive else { return false }
             guard let apply = command.applyPreset else { return false }
             switch apply.practice {
             case "yoga":
@@ -214,10 +245,16 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
                 let rest = max(0, yoga.restSeconds)
                 let asanas = max(0, yoga.asanaCount)
                 guard hold > 0, asanas > 0 else { return false }
-                UserDefaults.standard.set(hold, forKey: "userHoldSeconds")
-                UserDefaults.standard.set(rest, forKey: "userRestSeconds")
-                UserDefaults.standard.set(asanas, forKey: "userAsanaCount")
-                return true
+                // Write through YogaPreferences (the store the watch timer and
+                // customize UI actually read). Its property observers mirror
+                // the legacy user* keys and push a fresh snapshot to iOS.
+                Task { @MainActor in
+                    let prefs = YogaPreferences.shared
+                    prefs.holdSeconds = hold
+                    prefs.restSeconds = rest
+                    prefs.asanaCount = asanas
+                }
+                return false
 
             case "pranayama":
                 guard let p = apply.pranayama,

@@ -18,7 +18,7 @@
 import Foundation
 
 enum CompanionSchema {
-    static let version = 4
+    static let version = 5
 }
 
 /// Single heart-rate datapoint captured during a session. `secondsFromStart`
@@ -138,20 +138,29 @@ struct CompanionStateSnapshot: Codable {
     let sequence: UInt64
     let streaksByActivity: [String: CompanionStreakSummary]
     let presets: CompanionPresetsSnapshot
+    /// Recent session history (HR series stripped to keep the applicationContext
+    /// payload small). Rides along in every snapshot so iOS never misses
+    /// sessions even if individual `transferUserInfo` events are delayed or
+    /// dropped; the full per-event payloads (with `hrSamples`) still arrive via
+    /// the userInfo queue and take precedence in the iOS store.
+    let recentEvents: [CompanionSessionEvent]?
 
     init(generatedAt: Date,
          sequence: UInt64,
          streaksByActivity: [String: CompanionStreakSummary],
-         presets: CompanionPresetsSnapshot) {
+         presets: CompanionPresetsSnapshot,
+         recentEvents: [CompanionSessionEvent]? = nil) {
         self.generatedAt = generatedAt
         self.sequence = sequence
         self.streaksByActivity = streaksByActivity
         self.presets = presets
+        self.recentEvents = recentEvents
     }
 
-    // Backwards compat: snapshots written by schemaVersion 1 lack `sequence`.
+    // Backwards compat: snapshots written by schemaVersion 1 lack `sequence`;
+    // snapshots written by schema < 5 lack `recentEvents`.
     private enum CodingKeys: String, CodingKey {
-        case generatedAt, sequence, streaksByActivity, presets
+        case generatedAt, sequence, streaksByActivity, presets, recentEvents
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -159,6 +168,7 @@ struct CompanionStateSnapshot: Codable {
         sequence = (try? c.decode(UInt64.self, forKey: .sequence)) ?? 0
         streaksByActivity = try c.decode([String: CompanionStreakSummary].self, forKey: .streaksByActivity)
         presets = try c.decode(CompanionPresetsSnapshot.self, forKey: .presets)
+        recentEvents = try c.decodeIfPresent([CompanionSessionEvent].self, forKey: .recentEvents)
     }
 }
 

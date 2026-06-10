@@ -167,6 +167,10 @@ struct MeditationView: View {
                 }
             }
         }
+        .onChange(of: customDuration) { _, _ in
+            // Keep the iOS companion's meditation preset in sync.
+            WatchConnectivityManager.shared.pushLatestSnapshotDebounced()
+        }
         .sheet(isPresented: $showingPresetEditor) {
             MeditationPresetEditor(
                 presetName: $draftPresetName,
