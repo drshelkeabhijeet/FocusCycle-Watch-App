@@ -86,13 +86,14 @@ final class HeartRateManager: NSObject, ObservableObject {
         var byBucket: [Int: (sum: Int, count: Int)] = [:]
         for s in samples {
             let t = max(0, Int(s.date.timeIntervalSince(start) / bucket))
-            byBucket[t, default: (0, 0)] = (byBucket[t]!.sum + s.bpm, byBucket[t]!.count + 1)
+            let existing = byBucket[t] ?? (sum: 0, count: 0)
+            byBucket[t] = (existing.sum + s.bpm, existing.count + 1)
         }
         let ordered = byBucket.keys.sorted()
         var out: [HRSamplePoint] = []
         out.reserveCapacity(ordered.count)
         for k in ordered {
-            let agg = byBucket[k]!
+            guard let agg = byBucket[k] else { continue }
             let avg = agg.sum / max(1, agg.count)
             out.append(HRSamplePoint(t: k * Int(bucket), bpm: avg))
         }
